@@ -1,6 +1,6 @@
 import express from 'express'
-import { getPosts, createPost, getUserPosts, deletePost } from '../controllers/postController.jsx'
-import { requireAuth } from '../middlewares/auth.jsx'
+import { getPosts, createPost, getUserPosts, deletePost } from '../controllers/postController.js'
+import { requireAuth } from '../middlewares/auth.js'
 
 const router = express.Router()
 
