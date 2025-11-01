@@ -25,12 +25,18 @@ async function start() {
     app.use(cookieParser())
     app.use(morgan(process.env.NODE_ENV === 'production' ? 'common' : 'dev'))
 
+    const frontendOrigin = process.env.FRONTEND_URL || 'http://localhost:5173'
     app.use(
       cors({
-        origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+        origin: frontendOrigin,
         credentials: true,
       }),
     )
+
+    // lightweight health endpoint for container healthchecks
+    app.get('/health', (_req, res) => res.json({ ok: true }))
+
+    console.log(`Configured CORS origin: ${frontendOrigin}`)
 
     // basic rate limiter
     const limiter = rateLimit({ windowMs: 60_000, max: 120 })
@@ -44,7 +50,8 @@ async function start() {
     // error handler (last)
     app.use(errorHandler)
 
-    app.listen(PORT, () => console.log(`Server running on port ${PORT}`))
+  // bind to 0.0.0.0 so Docker containers are reachable from the host
+  app.listen(PORT, '0.0.0.0', () => console.log(`Server running on 0.0.0.0:${PORT}`))
   } catch (err) {
     console.error('Failed to start server', err)
     process.exit(1)
