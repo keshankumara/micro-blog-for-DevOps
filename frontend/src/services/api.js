@@ -1,4 +1,7 @@
-const BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+// Use a same-origin relative path by default so the frontend (served by
+// nginx) can proxy requests to the backend. Set VITE_API_URL to override
+// during development if you run the frontend dev server on a different port.
+const BASE = import.meta.env.VITE_API_URL || '/api'
 
 async function request(path, opts = {}) {
 	const res = await fetch(`${BASE}${path}`, {
