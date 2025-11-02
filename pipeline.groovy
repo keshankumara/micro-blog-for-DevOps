@@ -1,5 +1,5 @@
-// pipeline.groovy - Scripted Jenkins pipeline (fixed for ansiColor / scripted usage)
-// Uses ssh-agent plugin for remote SSH keys. Requires AnsiColor and SSH Agent plugins.
+// pipeline.groovy - Scripted Jenkins pipeline (NO ansiColor) 
+// Uses ssh-agent plugin for remote SSH keys. (AnsiColor removed to avoid parse errors.)
 
 properties([
   parameters([
@@ -22,136 +22,130 @@ node {
   def MAX_HEALTH_RETRIES = 18
   def HEALTH_SLEEP = 5
 
-  // Use ansiColor step (wrapper) to get colored logs in scripted pipeline
-  ansiColor('xterm') {
-    try {
-      stage('Prepare workspace & checkout') {
-        echo "Preparing workspace and checking out ${params.BRANCH} from ${REPO_SSH}"
-        deleteDir()
-        // Checkout using SSH credential
-        checkout([$class: 'GitSCM',
-          branches: [[name: "*/${params.BRANCH}"]],
-          userRemoteConfigs: [[url: REPO_SSH, credentialsId: GIT_SSH]]
-        ])
-        sh 'echo "Workspace contents:"; ls -la'
-      }
+  try {
+    stage('Prepare workspace & checkout') {
+      echo "Preparing workspace and checking out ${params.BRANCH} from ${REPO_SSH}"
+      deleteDir()
+      // Checkout using SSH credential
+      checkout([$class: 'GitSCM',
+        branches: [[name: "*/${params.BRANCH}"]],
+        userRemoteConfigs: [[url: REPO_SSH, credentialsId: GIT_SSH]]
+      ])
+      sh 'echo "Workspace contents:"; ls -la'
+    }
 
-      stage('Deploy: ensure remote dir & fetch code') {
-        sshagent([DEPLOY_SSH]) {
-          // Optionally clean remote dir
-          if (params.CLEAN_FIRST) {
-            sh """
-              ssh -o StrictHostKeyChecking=no ${params.DEPLOY_USER}@${params.DEPLOY_HOST} \\
-                'rm -rf ${params.REMOTE_APP_DIR} && mkdir -p ${params.REMOTE_APP_DIR}'
-            """
-          } else {
-            sh """
-              ssh -o StrictHostKeyChecking=no ${params.DEPLOY_USER}@${params.DEPLOY_HOST} \\
-                'mkdir -p ${params.REMOTE_APP_DIR}'
-            """
-          }
-
-          // Clone if missing, else fetch & reset to remote branch
+    stage('Deploy: ensure remote dir & fetch code') {
+      sshagent([DEPLOY_SSH]) {
+        if (params.CLEAN_FIRST) {
           sh """
             ssh -o StrictHostKeyChecking=no ${params.DEPLOY_USER}@${params.DEPLOY_HOST} \\
-            'set -e
-             cd ${params.REMOTE_APP_DIR}
-             if [ -d .git ]; then
-               echo "Repo exists - fetching and resetting to ${params.BRANCH}"
-               git fetch --all --prune
-               git checkout ${params.BRANCH} || git checkout -b ${params.BRANCH}
-               git reset --hard origin/${params.BRANCH}
-             else
-               echo "Cloning ${REPO_SSH} branch ${params.BRANCH}"
-               git clone --branch ${params.BRANCH} ${REPO_SSH} .
-             fi'
+              'rm -rf ${params.REMOTE_APP_DIR} && mkdir -p ${params.REMOTE_APP_DIR}'
           """
-        }
-      }
-
-      stage('Deploy: docker compose up') {
-        sshagent([DEPLOY_SSH]) {
-          def sudoPrefix = params.USE_SUDO ? 'sudo ' : ''
+        } else {
           sh """
             ssh -o StrictHostKeyChecking=no ${params.DEPLOY_USER}@${params.DEPLOY_HOST} \\
-            'set -e
-             cd ${params.REMOTE_APP_DIR}
-             if ! command -v docker >/dev/null 2>&1; then
-               echo "docker not found on remote - aborting" >&2
-               exit 2
-             fi
-             if ${sudoPrefix}docker compose version >/dev/null 2>&1; then
-               ${sudoPrefix}docker compose -f ${DOCKER_COMPOSE_FILE} down --remove-orphans || true
-               ${sudoPrefix}docker compose -f ${DOCKER_COMPOSE_FILE} up -d --build
-             else
-               ${sudoPrefix}docker-compose -f ${DOCKER_COMPOSE_FILE} down --remove-orphans || true
-               ${sudoPrefix}docker-compose -f ${DOCKER_COMPOSE_FILE} up -d --build
-             fi
-            '
+              'mkdir -p ${params.REMOTE_APP_DIR}'
           """
         }
-      }
 
-      stage('Wait for backend health') {
-        sshagent([DEPLOY_SSH]) {
-          echo "Polling backend health at ${BACKEND_HEALTH} on remote host..."
-          def ok = false
-          for (int i = 1; i <= MAX_HEALTH_RETRIES; i++) {
-            try {
-              sh """
-                ssh -o StrictHostKeyChecking=no ${params.DEPLOY_USER}@${params.DEPLOY_HOST} \\
-                'curl --fail --silent --show-error --max-time 5 ${BACKEND_HEALTH} >/dev/null 2>&1'
-              """
-              echo "Backend healthy (attempt ${i})."
-              ok = true
-              break
-            } catch (err) {
-              echo "Attempt ${i}/${MAX_HEALTH_RETRIES} - backend not ready. Sleeping ${HEALTH_SLEEP}s..."
-              sleep HEALTH_SLEEP
-            }
-          }
-          if (!ok) {
-            error "Backend did not become healthy after ${MAX_HEALTH_RETRIES * HEALTH_SLEEP} seconds."
-          }
-        }
+        sh """
+          ssh -o StrictHostKeyChecking=no ${params.DEPLOY_USER}@${params.DEPLOY_HOST} \\
+          'set -e
+           cd ${params.REMOTE_APP_DIR}
+           if [ -d .git ]; then
+             echo "Repo exists - fetching and resetting to ${params.BRANCH}"
+             git fetch --all --prune
+             git checkout ${params.BRANCH} || git checkout -b ${params.BRANCH}
+             git reset --hard origin/${params.BRANCH}
+           else
+             echo "Cloning ${REPO_SSH} branch ${params.BRANCH}"
+             git clone --branch ${params.BRANCH} ${REPO_SSH} .
+           fi'
+        """
       }
+    }
 
-      stage('Post-deploy: gather status & logs') {
-        sshagent([DEPLOY_SSH]) {
-          def sudoPrefix = params.USE_SUDO ? 'sudo ' : ''
-          sh """
-            ssh -o StrictHostKeyChecking=no ${params.DEPLOY_USER}@${params.DEPLOY_HOST} \\
-            'if ${sudoPrefix}docker compose version >/dev/null 2>&1; then
-               ${sudoPrefix}docker compose -f ${DOCKER_COMPOSE_FILE} ps || true
-               ${sudoPrefix}docker compose -f ${DOCKER_COMPOSE_FILE} logs --tail=200 || true
-             else
-               ${sudoPrefix}docker-compose -f ${DOCKER_COMPOSE_FILE} ps || true
-               ${sudoPrefix}docker-compose -f ${DOCKER_COMPOSE_FILE} logs --tail=200 || true
-             fi'
-          """
-        }
-      }
-
-      stage('Done') {
-        echo "Deployment finished successfully."
-      }
-
-    } catch (err) {
-      // Failure handling: collect logs
-      echo "Deployment failed: ${err}"
+    stage('Deploy: docker compose up') {
       sshagent([DEPLOY_SSH]) {
         def sudoPrefix = params.USE_SUDO ? 'sudo ' : ''
         sh """
           ssh -o StrictHostKeyChecking=no ${params.DEPLOY_USER}@${params.DEPLOY_HOST} \\
-          'echo \"-- docker ps --\"; ${sudoPrefix}docker ps --format \"{{.Names}} {{.Image}} {{.Status}}\" || true; \\
-           echo \"-- compose ps --\"; if ${sudoPrefix}docker compose version >/dev/null 2>&1; then ${sudoPrefix}docker compose ps || true; else ${sudoPrefix}docker-compose ps || true; fi; \\
-           echo \"-- last logs (400) --\"; if ${sudoPrefix}docker compose version >/dev/null 2>&1; then ${sudoPrefix}docker compose logs --tail=400 || true; else ${sudoPrefix}docker-compose logs --tail=400 || true; fi'
+          'set -e
+           cd ${params.REMOTE_APP_DIR}
+           if ! command -v docker >/dev/null 2>&1; then
+             echo "docker not found on remote - aborting" >&2
+             exit 2
+           fi
+           if ${sudoPrefix}docker compose version >/dev/null 2>&1; then
+             ${sudoPrefix}docker compose -f ${DOCKER_COMPOSE_FILE} down --remove-orphans || true
+             ${sudoPrefix}docker compose -f ${DOCKER_COMPOSE_FILE} up -d --build
+           else
+             ${sudoPrefix}docker-compose -f ${DOCKER_COMPOSE_FILE} down --remove-orphans || true
+             ${sudoPrefix}docker-compose -f ${DOCKER_COMPOSE_FILE} up -d --build
+           fi
+          '
         """
       }
-      // rethrow to mark build failed
-      throw err
-    } finally {
-      echo "Pipeline finished."
     }
-  } // end ansiColor
-} // end node
+
+    stage('Wait for backend health') {
+      sshagent([DEPLOY_SSH]) {
+        echo "Polling backend health at ${BACKEND_HEALTH} on remote host..."
+        def ok = false
+        for (int i = 1; i <= MAX_HEALTH_RETRIES; i++) {
+          try {
+            sh """
+              ssh -o StrictHostKeyChecking=no ${params.DEPLOY_USER}@${params.DEPLOY_HOST} \\
+              'curl --fail --silent --show-error --max-time 5 ${BACKEND_HEALTH} >/dev/null 2>&1'
+            """
+            echo "Backend healthy (attempt ${i})."
+            ok = true
+            break
+          } catch (err) {
+            echo "Attempt ${i}/${MAX_HEALTH_RETRIES} - backend not ready. Sleeping ${HEALTH_SLEEP}s..."
+            sleep HEALTH_SLEEP
+          }
+        }
+        if (!ok) {
+          error "Backend did not become healthy after ${MAX_HEALTH_RETRIES * HEALTH_SLEEP} seconds."
+        }
+      }
+    }
+
+    stage('Post-deploy: gather status & logs') {
+      sshagent([DEPLOY_SSH]) {
+        def sudoPrefix = params.USE_SUDO ? 'sudo ' : ''
+        sh """
+          ssh -o StrictHostKeyChecking=no ${params.DEPLOY_USER}@${params.DEPLOY_HOST} \\
+          'if ${sudoPrefix}docker compose version >/dev/null 2>&1; then
+             ${sudoPrefix}docker compose -f ${DOCKER_COMPOSE_FILE} ps || true
+             ${sudoPrefix}docker compose -f ${DOCKER_COMPOSE_FILE} logs --tail=200 || true
+           else
+             ${sudoPrefix}docker-compose -f ${DOCKER_COMPOSE_FILE} ps || true
+             ${sudoPrefix}docker-compose -f ${DOCKER_COMPOSE_FILE} logs --tail=200 || true
+           fi'
+        """
+      }
+    }
+
+    stage('Done') {
+      echo "Deployment finished successfully."
+    }
+
+  } catch (err) {
+    echo "Deployment failed: ${err}"
+    // Attempt to collect logs for debugging
+    sshagent([DEPLOY_SSH]) {
+      def sudoPrefix = params.USE_SUDO ? 'sudo ' : ''
+      sh """
+        ssh -o StrictHostKeyChecking=no ${params.DEPLOY_USER}@${params.DEPLOY_HOST} \\
+        'echo \"-- docker ps --\"; ${sudoPrefix}docker ps --format \"{{.Names}} {{.Image}} {{.Status}}\" || true; \\
+         echo \"-- compose ps --\"; if ${sudoPrefix}docker compose version >/dev/null 2>&1; then ${sudoPrefix}docker compose ps || true; else ${sudoPrefix}docker-compose ps || true; fi; \\
+         echo \"-- last logs (400) --\"; if ${sudoPrefix}docker compose version >/dev/null 2>&1; then ${sudoPrefix}docker compose logs --tail=400 || true; else ${sudoPrefix}docker-compose logs --tail=400 || true; fi'
+      """
+    }
+    throw err
+  } finally {
+    echo "Pipeline finished."
+  }
+}
