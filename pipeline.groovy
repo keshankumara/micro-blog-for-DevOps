@@ -1,127 +1,157 @@
-// Jenkinsfile - Declarative pipeline for building + deploying docker-compose stack
-pipeline {
-  agent any
+// pipeline.groovy - Scripted Jenkins pipeline for SSH deploy of micro-blog-for-DevOps
+// Place in repo or paste into a Pipeline job. Uses ssh-agent plugin for remote SSH keys.
 
-  // Optional: allow selecting branch at build time
-  parameters {
-    string(name: 'BRANCH', defaultValue: 'main', description: 'Git branch to build')
-    booleanParam(name: 'PUSH_IMAGES', defaultValue: false, description: 'Push images to Docker Hub (requires credentials)')
+properties([
+  parameters([
+    string(name: 'BRANCH',        defaultValue: 'main', description: 'Git branch to deploy'),
+    string(name: 'DEPLOY_HOST',   defaultValue: 'your.remote.host', description: 'Remote host (IP/hostname)'),
+    string(name: 'DEPLOY_USER',   defaultValue: 'ubuntu', description: 'User on remote host'),
+    string(name: 'REMOTE_APP_DIR',defaultValue: '/home/ubuntu/micro-blog', description: 'Remote dir for the app'),
+    booleanParam(name: 'CLEAN_FIRST', defaultValue: false, description: 'Remove remote dir before clone (use with caution)'),
+    booleanParam(name: 'USE_SUDO', defaultValue: false, description: 'Prefix remote docker commands with sudo if required')
+  ])
+])
+
+node {
+  // config
+  def GIT_SSH = 'github-ssh'    // Jenkins credential id (SSH key) for GitHub
+  def DEPLOY_SSH = 'deploy-ssh' // Jenkins credential id (SSH key) for remote host
+  def REPO_SSH = 'git@github.com:keshankumara/micro-blog-for-DevOps.git'
+  def DOCKER_COMPOSE_FILE = 'docker-compose.yml'
+  def BACKEND_HEALTH = 'http://127.0.0.1:5000/api/posts'
+  def MAX_HEALTH_RETRIES = 18
+  def HEALTH_SLEEP = 5
+
+  stage('Prepare workspace & checkout') {
+    echo "Preparing workspace and checking out ${params.BRANCH} from ${REPO_SSH}"
+    deleteDir()
+    // Checkout using SSH credential (works for private repos)
+    checkout([$class: 'GitSCM',
+      branches: [[name: "*/${params.BRANCH}"]],
+      userRemoteConfigs: [[url: REPO_SSH, credentialsId: GIT_SSH]]
+    ])
+    sh 'echo "Workspace ready"; ls -la'
   }
 
-  environment {
-    COMPOSE_PROJECT_NAME = "micro-blog"
-    DOCKER_COMPOSE_FILE = "docker-compose.yml"
-    BACKEND_HEALTH_URL = "http://127.0.0.1:5000/api/posts"
-    // If pushing, configure a Jenkins credential with ID 'dockerhub-creds' (username/password)
-    DOCKERHUB_CREDENTIALS = 'dockerhub-creds'
-  }
-
-  options {
-    timeout(time: 30, unit: 'MINUTES')
-    ansiColor('xterm')
-    buildDiscarder(logRotator(numToKeepStr: '20'))
-    timestamps()
-  }
-
-  stages {
-    stage('Prepare') {
-      steps {
-        echo "Building branch: ${params.BRANCH}"
-        // Checkout the branch (assumes Jenkins multibranch or pipeline with Git configured)
-        checkout([$class: 'GitSCM',
-                  branches: [[name: "*/${params.BRANCH}"]],
-                  userRemoteConfigs: [[url: env.GIT_URL ?: scm.userRemoteConfigs[0].url]]])
-        sh 'docker --version || true'
-        sh 'docker-compose --version || true'
-      }
-    }
-
-    stage('Build images') {
-      steps {
-        echo "Building docker-compose images..."
-        // Build images defined in docker-compose.yml
-        sh "docker-compose -f ${DOCKER_COMPOSE_FILE} build --parallel"
-      }
-    }
-
-    // Optional: push images to Docker Hub (disabled by default)
-    stage('Push images (optional)') {
-      when {
-        expression { return params.PUSH_IMAGES == true }
-      }
-      steps {
-        echo "Pushing images to Docker registry..."
-        withCredentials([usernamePassword(credentialsId: env.DOCKERHUB_CREDENTIALS, usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+  try {
+    stage('Deploy: ensure remote dir & fetch code') {
+      sshagent([DEPLOY_SSH]) {
+        // ensure remote dir exists (optionally clean it)
+        if (params.CLEAN_FIRST) {
           sh """
-            echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-            # tag & push if you want; adjust names/tags to match your images/repo
-            docker tag frontend:latest ${DOCKER_USER}/frontend:latest
-            docker tag backend:latest ${DOCKER_USER}/backend:latest
-            docker push ${DOCKER_USER}/frontend:latest
-            docker push ${DOCKER_USER}/backend:latest
-            docker logout
+            ssh -o StrictHostKeyChecking=no ${params.DEPLOY_USER}@${params.DEPLOY_HOST} \\
+              'rm -rf ${params.REMOTE_APP_DIR} && mkdir -p ${params.REMOTE_APP_DIR}'
+          """
+        } else {
+          sh """
+            ssh -o StrictHostKeyChecking=no ${params.DEPLOY_USER}@${params.DEPLOY_HOST} \\
+              'mkdir -p ${params.REMOTE_APP_DIR}'
           """
         }
+
+        // Clone if missing, else fetch & reset to remote branch
+        sh """
+          ssh -o StrictHostKeyChecking=no ${params.DEPLOY_USER}@${params.DEPLOY_HOST} \\
+          'set -e
+           cd ${params.REMOTE_APP_DIR}
+           if [ -d .git ]; then
+             echo "Repo exists - fetching and resetting to ${params.BRANCH}"
+             git fetch --all --prune
+             git checkout ${params.BRANCH} || git checkout -b ${params.BRANCH}
+             git reset --hard origin/${params.BRANCH}
+           else
+             echo "Cloning ${REPO_SSH} branch ${params.BRANCH}"
+             git clone --branch ${params.BRANCH} ${REPO_SSH} .
+           fi'
+        """
       }
     }
 
-    stage('Deploy (docker-compose up)') {
-      steps {
-        echo "Bringing up stack..."
-        // Stop any running stack first (safe)
-        sh "docker-compose -f ${DOCKER_COMPOSE_FILE} down --remove-orphans || true"
-        sh "docker-compose -f ${DOCKER_COMPOSE_FILE} up -d"
+    stage('Deploy: docker compose up') {
+      sshagent([DEPLOY_SSH]) {
+        // Build command to optionally prefix sudo
+        def sudoPrefix = params.USE_SUDO ? 'sudo ' : ''
+        sh """
+          ssh -o StrictHostKeyChecking=no ${params.DEPLOY_USER}@${params.DEPLOY_HOST} \\
+          'set -e
+           cd ${params.REMOTE_APP_DIR}
+           if ! command -v docker >/dev/null 2>&1; then
+             echo "docker not found on remote - aborting" >&2
+             exit 2
+           fi
+           if ${sudoPrefix}docker compose version >/dev/null 2>&1; then
+             ${sudoPrefix}docker compose -f ${DOCKER_COMPOSE_FILE} down --remove-orphans || true
+             ${sudoPrefix}docker compose -f ${DOCKER_COMPOSE_FILE} up -d --build
+           else
+             ${sudoPrefix}docker-compose -f ${DOCKER_COMPOSE_FILE} down --remove-orphans || true
+             ${sudoPrefix}docker-compose -f ${DOCKER_COMPOSE_FILE} up -d --build
+           fi
+          '
+        """
       }
     }
 
     stage('Wait for backend health') {
-      steps {
-        echo "Waiting for backend to return HTTP 200 at ${env.BACKEND_HEALTH_URL} ..."
-        // simple poll loop that waits up to 90 seconds (adjust as needed)
-        script {
-          def maxRetries = 18
-          def sleepSec = 5
-          def ok = false
-          for (int i = 1; i <= maxRetries; i++) {
-            try {
-              sh "curl --fail --silent --show-error --max-time 3 ${env.BACKEND_HEALTH_URL} >/dev/null 2>&1"
-              echo "Backend healthy (HTTP 200)."
-              ok = true
-              break
-            } catch (err) {
-              echo "Attempt ${i}/${maxRetries} - backend not ready yet. Sleeping ${sleepSec}s..."
-              sleep time: sleepSec, unit: 'SECONDS'
-            }
+      sshagent([DEPLOY_SSH]) {
+        echo "Polling backend health at ${BACKEND_HEALTH} on remote host..."
+        def ok = false
+        for (int i = 1; i <= MAX_HEALTH_RETRIES; i++) {
+          try {
+            sh """
+              ssh -o StrictHostKeyChecking=no ${params.DEPLOY_USER}@${params.DEPLOY_HOST} \\
+              'curl --fail --silent --show-error --max-time 5 ${BACKEND_HEALTH} >/dev/null 2>&1'
+            """
+            echo "Backend healthy (attempt ${i})."
+            ok = true
+            break
+          } catch (err) {
+            echo "Attempt ${i}/${MAX_HEALTH_RETRIES} - backend not ready. Sleeping ${HEALTH_SLEEP}s..."
+            sleep HEALTH_SLEEP
           }
-          if (!ok) {
-            error "Backend did not become healthy within ${maxRetries * sleepSec} seconds."
-          }
+        }
+        if (!ok) {
+          error "Backend did not become healthy after ${MAX_HEALTH_RETRIES * HEALTH_SLEEP} seconds."
         }
       }
     }
 
-    stage('Post-deploy checks') {
-      steps {
-        sh "docker-compose -f ${DOCKER_COMPOSE_FILE} ps"
-        echo "Last logs (backend/frontend):"
-        sh "docker-compose -f ${DOCKER_COMPOSE_FILE} logs --tail=80"
+    stage('Post-deploy: gather status & logs') {
+      sshagent([DEPLOY_SSH]) {
+        def sudoPrefix = params.USE_SUDO ? 'sudo ' : ''
+        sh """
+          ssh -o StrictHostKeyChecking=no ${params.DEPLOY_USER}@${params.DEPLOY_HOST} \\
+          'if ${sudoPrefix}docker compose version >/dev/null 2>&1; then
+             ${sudoPrefix}docker compose -f ${DOCKER_COMPOSE_FILE} ps || true
+             ${sudoPrefix}docker compose -f ${DOCKER_COMPOSE_FILE} logs --tail=200 || true
+           else
+             ${sudoPrefix}docker-compose -f ${DOCKER_COMPOSE_FILE} ps || true
+             ${sudoPrefix}docker-compose -f ${DOCKER_COMPOSE_FILE} logs --tail=200 || true
+           fi'
+        """
       }
     }
-  }
 
-  post {
-    success {
-      echo "Deployment SUCCESS: Stack is up and healthy."
+    stage('Done') {
+      echo "Deployment finished successfully."
     }
-    failure {
-      echo "Deployment FAILED - collecting logs and tearing down."
-      sh "docker-compose -f ${DOCKER_COMPOSE_FILE} ps || true"
-      sh "docker-compose -f ${DOCKER_COMPOSE_FILE} logs --tail=200 || true"
-      // optionally bring stack down to avoid partial broken state
-      sh "docker-compose -f ${DOCKER_COMPOSE_FILE} down --remove-orphans || true"
+
+  } catch (err) {
+    stage('Failure handling') {
+      echo "Deployment failed: ${err}"
+      // try to collect larger logs & ps for debugging
+      sshagent([DEPLOY_SSH]) {
+        def sudoPrefix = params.USE_SUDO ? 'sudo ' : ''
+        sh """
+          ssh -o StrictHostKeyChecking=no ${params.DEPLOY_USER}@${params.DEPLOY_HOST} \\
+          'echo \"-- docker ps --\"; ${sudoPrefix}docker ps --format \"{{.Names}} {{.Image}} {{.Status}}\" || true; \\
+           echo \"-- compose ps --\"; if ${sudoPrefix}docker compose version >/dev/null 2>&1; then ${sudoPrefix}docker compose ps || true; else ${sudoPrefix}docker-compose ps || true; fi; \\
+           echo \"-- last logs (400) --\"; if ${sudoPrefix}docker compose version >/dev/null 2>&1; then ${sudoPrefix}docker compose logs --tail=400 || true; else ${sudoPrefix}docker-compose logs --tail=400 || true; fi'
+        """
+      }
     }
-    cleanup {
-      echo "Pipeline finished."
-    }
+    // rethrow to mark build failed
+    throw err
+  } finally {
+    echo "Pipeline finished."
   }
 }
