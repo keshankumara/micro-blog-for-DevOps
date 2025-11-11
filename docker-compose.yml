@@ -1,43 +1,35 @@
-# docker-compose.yml - Production-ready setup for micro-blog
+
+version: "3.8"
 services:
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    image: frontend:latest
-    ports:
-      - "80:80"
-    restart: unless-stopped
-    depends_on:
-      - backend
-    networks:
-      - micro-blog-network
+    backend:
+        build: ./backend
+        image: backend:latest
+        container_name: microblog-backend
+        ports:
+            - "5000:5000"
+        environment:
+            - PORT=5000
+            - MONGO_URI=mongodb://mongo:27017/microblog
+        depends_on:
+            - mongo
 
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    image: backend:latest
-    environment:
-      - NODE_ENV=production
-      - PORT=5000
-    ports:
-      - "5000:5000"
-    restart: unless-stopped
-    # Note: don't make backend depend on frontend. The frontend should start
-    # after the backend so it can proxy or call API endpoints. Use
-    # `depends_on` on the frontend side (above) instead.
-    networks:
-      - micro-blog-network
-    # Use a node-based healthcheck so we don't depend on wget/curl being
-    # present in the image. Adjust path if your app exposes a different
-    # health endpoint (e.g., /health or /api/health).
-    healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get({host:'127.0.0.1',port:5000,path:'/api/posts'},res=>{process.exit(res.statusCode===200?0:1)}).on('error',()=>process.exit(1))"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
+    frontend:
+        build: ./frontend
+        image: frontend:latest
+        container_name: microblog-frontend
+        # Frontend's Dockerfile serves with nginx on container port 80; publish it on host 5173 per request
+        ports:
+            - "5173:80"
+        depends_on:
+            - backend
 
-networks:
-  micro-blog-network:
-    name: micro-blog-network
+    mongo:
+        image: mongo:6.0
+        container_name: microblog-mongo
+        restart: unless-stopped
+        volumes:
+            - mongo-data:/data/db
+
+volumes:
+    mongo-data:
+
