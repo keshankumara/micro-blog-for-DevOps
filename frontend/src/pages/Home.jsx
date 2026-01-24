@@ -1,49 +1,70 @@
-import React, { useEffect, useState } from 'react'
-import NewPostForm from '../features/Posts/NewPostForm'
-import PostList from '../features/Posts/PostList'
-import Card from '../components/Card'
-import { api } from '../services/api'
+import { useState, useEffect } from 'react';
+import { api } from '../api/axios';
+import PostCard from '../components/PostCard';
 
-export default function Home() {
-  const [posts, setPosts] = useState([])
-  const [loading, setLoading] = useState(true)
+const Home = () => {
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let mounted = true
-    setLoading(true)
-    api
-      .getPosts()
-      .then((r) => mounted && setPosts(r || []))
-      .catch(() => {})
-      .finally(() => mounted && setLoading(false))
-    return () => (mounted = false)
-  }, [])
+    let isActive = true;
 
-  const addPost = (p) => setPosts((s) => [p, ...s])
+    const loadPosts = async () => {
+      try {
+        const response = await api.get('/posts');
+        if (!isActive) return;
+        setPosts(response.data);
+      } catch (error) {
+        if (!isActive) return;
+        console.error('Error fetching posts:', error);
+      } finally {
+        if (isActive) setLoading(false);
+      }
+    };
+
+    loadPosts();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  const handleUpdatePost = (updatedPost) => {
+    setPosts(posts.map(post => post._id === updatedPost._id ? updatedPost : post));
+  };
+
+  const handleDeletePost = (postId) => {
+    setPosts(posts.filter(post => post._id !== postId));
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-primary-blue text-xl">Loading posts...</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="layout">
-      <main>
-        <section className="stack">
-          <Card>
-            <NewPostForm onCreate={addPost} />
-          </Card>
+    <div className="container mx-auto px-4 py-8 max-w-3xl">
+      <h1 className="text-3xl font-bold text-gray-800 mb-8">Public Feed</h1>
 
-          <Card>
-            <h2>Recent posts</h2>
-            <div style={{ marginTop: '.75rem' }}>
-              <PostList posts={posts} loading={loading} />
-            </div>
-          </Card>
-        </section>
-      </main>
-
-      <aside>
-        <Card>
-          <h3>Your profile</h3>
-          <p className="muted small">Log in to manage your posts and profile.</p>
-        </Card>
-      </aside>
+      {posts.length === 0 ? (
+        <div className="bg-white rounded-lg shadow-md p-12 text-center">
+          <p className="text-gray-text text-lg">No posts yet. Be the first to create one!</p>
+        </div>
+      ) : (
+        posts.map((post) => (
+          <PostCard
+            key={post._id}
+            post={post}
+            onUpdate={handleUpdatePost}
+            onDelete={handleDeletePost}
+          />
+        ))
+      )}
     </div>
-  )
-}
+  );
+};
+
+export default Home;

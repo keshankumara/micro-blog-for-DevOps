@@ -1,8 +1,0 @@
-import express from 'express'
-import { getUser } from '../controllers/userController.jsx'
-
-const router = express.Router()
-
-router.get('/:id', getUser)
-
-export default router

@@ -1,28 +1,25 @@
 {
-  "name": "backend",
-  "private": true,
-  "version": "0.0.0",
+  "name": "microblog-backend",
+  "version": "1.0.0",
+  "description": "Backend for Microblog Platform",
+  "main": "index.js",
   "type": "module",
   "scripts": {
-  "start": "node src/server.js",
-  "dev": "nodemon --watch src --ext js --exec node src/server.js",
-    "lint": "eslint ."
+    "dev": "nodemon index.js",
+    "start": "node index.js"
   },
+  "keywords": ["microblog", "express", "mongodb"],
+  "author": "",
+  "license": "ISC",
   "dependencies": {
-    "bcryptjs": "^2.4.3",
-    "cookie-parser": "^1.4.6",
+    "express": "^4.18.2",
+    "mongoose": "^8.0.4",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
-    "express": "^4.18.2",
-    "express-rate-limit": "^6.8.0",
-    "helmet": "^7.0.0",
-    "jsonwebtoken": "^9.0.0",
-    "mongodb": "^6.20.0",
-    "mongoose": "^7.6.1",
-    "morgan": "^1.10.0"
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2"
   },
   "devDependencies": {
-    "eslint": "^9.36.0",
-    "nodemon": "^2.0.22"
+    "nodemon": "^3.0.2"
   }
 }

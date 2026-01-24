@@ -1,196 +1,224 @@
-# Micro Blog for DevOps
+# 🚀 Microblog Web Application
 
-A small micro-blog application intended for learning and demoing a typical DevOps workflow: a Vite + React frontend served by nginx and a Node/Express backend. This repository contains both frontend and backend code, Dockerfiles for each service, and a `docker-compose.yml` so you can run the full stack locally or as part of CI/CD.
+A full-stack microblog platform where users can register, login, create posts (public/private), like posts, comment on posts, and interact with other users. Built with modern web technologies and designed with a beautiful blue and green theme.
 
----
+## 📌 Features
 
-## Table of contents
+- ✅ User Authentication (Register/Login with JWT)
+- ✅ Create, Edit, Delete Posts
+- ✅ Public/Private Post Toggle
+- ✅ Like System
+- ✅ Comment System
+- ✅ User Profile
+- ✅ Responsive Design
+- ✅ Modern UI with Blue & Green Theme
 
-- Overview
-- Architecture
-- Quickstart (Docker Compose)
-- Development
-  - Backend
-  - Frontend
-- Environment variables
-- Docker / Production notes
-- Troubleshooting
-- Next steps
+## 🛠 Tech Stack
 
----
+### Frontend
+- React 19
+- Vite
+- React Router v6
+- Axios
+- Tailwind CSS
+- Context API (State Management)
 
-## Overview
+### Backend
+- Node.js
+- Express.js
+- MongoDB with Mongoose
+- JWT Authentication
+- bcrypt for Password Hashing
 
-This project demonstrates a minimal micro-blog platform with a React frontend and an Express backend with MongoDB (see `backend/config/db.js`). The repository layout is:
+## 🎨 Color Palette
 
 ```
-frontend/   # Vite React app, built to static files and served by nginx
-backend/    # Node + Express API
-docker-compose.yml
-README.md
+Primary Blue:  #2563EB  
+Primary Green: #16A34A  
+Light Blue:    #DBEAFE  
+Light Green:   #DCFCE7  
+White:         #FFFFFF  
+Gray Text:     #6B7280  
+Background:    #F9FAFB  
 ```
 
-Key goals:
-- Keep the frontend and backend in separate containers
-- Build small production images using multi-stage Dockerfiles
-- Serve the frontend with nginx and proxy `/api` to the backend for same-origin calls
+## 📁 Project Structure
 
-## Architecture
-
-- Frontend: React + Vite (source in `frontend/src`). Production build is produced by `npm run build` and served by `nginx` in the frontend Dockerfile. `frontend/nginx.conf` contains an `/api` proxy to the backend service.
-- Backend: Node 18 + Express (source in `backend/src`). A small health endpoint exists at `/health` and API routes are mounted under `/api`.
-- Compose: `docker-compose.yml` builds both images and starts them on a common network (`micro-blog-network`).
-
-## Quickstart (Docker Compose)
-
-These steps assume Docker Desktop or a Docker Engine and Compose v2+ are installed and available in PowerShell.
-
-
-1. From the repository root build and start the stack:
-
-```powershell
-# Build images and start services (single command)
-docker compose up --build
-
-# Start in detached mode (background)
-docker compose up -d --build
-
-# Follow logs for all services
-docker compose logs -f
-
-# Stop and remove containers, networks and default volumes
-docker compose down
+```
+micro-blog-for-DevOps/
+├── frontend/              # React + Vite frontend
+│   ├── src/
+│   │   ├── api/          # Axios configuration
+│   │   ├── components/   # Reusable components
+│   │   ├── context/      # Auth context
+│   │   ├── pages/        # Page components
+│   │   ├── App.jsx       # Main app component
+│   │   └── main.jsx      # Entry point
+│   ├── package.json
+│   └── vite.config.js
+│
+└── backend/              # Node.js + Express backend
+    ├── models/          # MongoDB models
+    ├── routes/          # API routes
+    ├── middleware/      # Auth middleware
+    ├── index.js         # Server entry point
+    └── package.json
 ```
 
-2. Open your browser to `http://localhost` (frontend) and the frontend will proxy API requests to the backend at `/api`.
+## 🚀 Getting Started
 
-Notes:
-- Frontend listens on container port 80 and is mapped to host port 80 by the compose file.
-- Backend listens on container port 5000 and is mapped to host port 5000.
+### Prerequisites
 
-## Development
+- Node.js (v18 or higher)
+- MongoDB installed and running locally
+- npm or yarn package manager
 
-You can run services independently during development.
+### Installation
 
-### Backend (local dev)
+#### 1. Clone the repository
 
-1. cd into `backend`
+```bash
+cd c:\Users\Keshan\Desktop\micro-blog-for-DevOps
+```
 
-2. Install only the MongoDB driver if you don't want to run a full `npm install`:
+#### 2. Setup Backend
 
-```powershell
+```bash
 cd backend
-# install mongoose if it's missing
-npm install mongoose
-
-# (Optional) to install all dependencies
-# npm install
+npm install
 ```
 
-3. Start the dev server using nodemon (the project also exposes `npm run dev` which uses nodemon):
-
-```powershell
-# run nodemon directly
-npx nodemon src/server.js
-
-# Or use the npm script
-# npm run dev
+Create a `.env` file in the backend directory (already created):
+```env
+MONGO_URL=mongodb://localhost:27017/microblog
+JWT_SECRET=your_jwt_secret_key_change_this_in_production
+PORT=5000
 ```
 
-4. Backend dev server runs on port `5000` by default. You can set environment variables in a local `.env` (see Environment variables below).
+Start MongoDB (if not running):
+```bash
+# Windows
+mongod
 
-### Frontend (local dev)
+# Or if MongoDB is installed as a service
+net start MongoDB
+```
 
-1. cd into `frontend`
-2. Install dependencies and start Vite dev server:
+Run the backend server:
+```bash
+npm run dev
+```
 
-```powershell
+The backend will run on http://localhost:5000
+
+#### 3. Setup Frontend
+
+Open a new terminal:
+
+```bash
 cd frontend
 npm install
+```
+
+Run the frontend:
+```bash
 npm run dev
 ```
 
-3. By default Vite serves on `http://localhost:5173`. During local dev set the API target with the env var `VITE_API_URL` (for example `http://localhost:5000/api`) so the client calls the backend directly instead of relying on nginx proxying.
+The frontend will run on http://localhost:3000
 
-Example (PowerShell):
+## 📖 API Endpoints
 
-```powershell
-#$env:VITE_API_URL = 'http://localhost:5000/api'
-npm run dev
-```
+### Auth Routes
+- `POST /auth/register` - Register new user
+- `POST /auth/login` - Login user
 
-## Environment variables
+### Post Routes (Protected)
+- `POST /posts/create` - Create new post
+- `GET /posts` - Get all public posts
+- `GET /posts/user/:userId` - Get user's posts
+- `PUT /posts/:id` - Update post
+- `DELETE /posts/:id` - Delete post
+- `PUT /posts/like/:id` - Like/Unlike post
+- `POST /posts/comment/:id` - Add comment to post
 
-Recommended variables for the backend (put in `backend/.env` or your deployment secrets store):
+## 🎯 Usage
 
-- `PORT` - port backend listens on (default 5000)
-- `MONGO_URI` - MongoDB connection string
-- `JWT_SECRET` - JWT signing secret
-- `FRONTEND_URL` - used to configure CORS in development (default `http://localhost:5173`)
+1. **Register** - Create a new account
+2. **Login** - Sign in with your credentials
+3. **Create Post** - Share your thoughts (public or private)
+4. **Interact** - Like and comment on posts
+5. **Profile** - View and manage your posts
 
-For the frontend dev server:
-- `VITE_API_URL` - full API base (e.g. `http://localhost:5000/api`) when not using nginx proxy
+## 🔐 Security Features
 
-Do NOT commit secrets to Git. Create a `.env.example` listing keys without values to help collaborators.
+- Password hashing with bcrypt
+- JWT token-based authentication
+- Protected API routes
+- Input validation
 
-## Docker / Production notes
+## 🌟 UI Features
 
-- Backend Dockerfile: `backend/Dockerfile` — multi-stage build that installs production dependencies, copies app files, switches to a non-root user, and runs `node src/server.js`.
-- Frontend Dockerfile: `frontend/Dockerfile` — builds the Vite app and then copies the `dist/` into an nginx image. `frontend/nginx.conf` contains a proxy for `/api` to the backend container name `backend:5000` when running in compose.
-- Healthcheck: The backend exposes a lightweight `/health` endpoint used for container health checks.
+- Clean and modern design
+- Responsive layout
+- Card-based post display
+- Smooth transitions
+- User-friendly forms
+- Real-time interactions
 
-Important production considerations:
-- Provide environment variables (DB, secrets) from a secure store or `env_file` in your orchestrator.
-- Don't bind-mount source into the production image. Use the image's files (no host volumes) so containers are immutable and reproducible.
+## 📝 Notes
 
-## Troubleshooting
+- Make sure MongoDB is running before starting the backend
+- The backend runs on port 5000 and frontend on port 3000
+- Change the JWT_SECRET in production
+- Posts can be toggled between public and private
+- Only post owners can edit/delete their posts
 
-1. Frontend shows no posts but backend is running
+## 🐛 Troubleshooting
 
- - If you're running with `docker compose` ensure you rebuilt the frontend image after changing `nginx.conf`:
+**MongoDB Connection Error:**
+- Ensure MongoDB is installed and running
+- Check if the port 27017 is available
+- Verify the MONGO_URL in .env file
 
-```powershell
-docker compose -f .\docker-compose.yml build frontend
-docker compose -f .\docker-compose.yml up -d
-```
+**Port Already in Use:**
+- Change the PORT in backend/.env
+- Change the port in frontend/vite.config.js
+- Update the API baseURL in frontend/src/api/axios.js
 
- - Check browser devtools (Network tab) for requests to `/api/posts`. If requests return 4xx/5xx, inspect backend logs:
+**CORS Issues:**
+- Verify the CORS configuration in backend/index.js
+- Ensure the frontend URL is correct
 
-```powershell
-docker compose logs -f backend
-```
+## 🚀 Deployment
 
- - If you see errors like `Cannot find module '/app/backend'` this usually means the container was started with an incorrect working directory, a wrong `CMD`, or a mount from the host that hides image files. Run `docker compose ps -a` and `docker inspect <container>` to check command and mount points.
+### Backend Deployment
+1. Use MongoDB Atlas for cloud database
+2. Deploy to services like Heroku, Railway, or AWS
+3. Update environment variables
+4. Update CORS settings
 
-2. CORS / credentials issues
+### Frontend Deployment
+1. Build the frontend: `npm run build`
+2. Deploy to Netlify, Vercel, or AWS S3
+3. Update API baseURL to production backend URL
 
- - The project defaults to proxied same-origin requests (nginx forwards `/api`), which avoids browser CORS. If you run the frontend dev server and call the backend directly, set `VITE_API_URL` and ensure the backend `FRONTEND_URL` CORS value matches your dev origin.
+## 📚 Future Enhancements
 
-3. Healthcheck failing
+- User avatars
+- Search functionality
+- Pagination for posts
+- Dark mode
+- Notifications
+- Follow/Unfollow system
+- Direct messaging
+- Post images
+- Rich text editor
 
- - Confirm the backend responds on `/health` and that the port is set to `5000` or whatever value you configured.
+## 👨‍💻 Author
 
-## Next steps and improvements
-
-- Add a `backend/.env.example` and `frontend/.env.example` to document required env vars.
-- Add CI to build and push images (GitHub Actions, GitLab CI, etc.).
-- Add a small entrypoint wait script for stricter startup ordering if needed, although the nginx proxy + retries in the frontend are usually sufficient.
-
-## Where to look in the repo
-
-- Frontend source: `frontend/src`
-- Frontend nginx config: `frontend/nginx.conf`
-- Backend source: `backend/src`
-- Backend Dockerfile: `backend/Dockerfile`
-- Compose orchestration: `docker-compose.yml`
+Built with ❤️ for learning Full-Stack Development and DevOps
 
 ---
 
-If you'd like, I can also:
-- add `.env.example` files,
-- add a short CI workflow to build/push images,
-- or add a small troubleshooting script to check container health and endpoints.
-
-Happy to make those next edits — tell me which you'd like me to do. 
-*# micro-blog-for-DevOps
-This is a small web application where users can write short posts
+**Happy Coding! 🎉**

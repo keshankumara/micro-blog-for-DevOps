@@ -1,30 +1,31 @@
-import React from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import './App.css'
-import './index.css'
-import NavBar from './components/NavBar'
-import { AuthProvider } from './contexts/AuthContext'
-import Home from './pages/Home'
-import Login from './features/Auth/Login'
-import Register from './features/Auth/Register'
-import Profile from './pages/Profile'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import Navbar from './components/Navbar';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import Home from './pages/Home';
+import CreatePost from './pages/CreatePost';
+import Profile from './pages/Profile';
+import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <div className="app-container">
-          <NavBar />
+    <AuthProvider>
+      <Router>
+        <div className="min-h-screen bg-gray-bg">
+          <Navbar />
           <Routes>
-            <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
-            <Route path="/profile/:id" element={<Profile />} />
+            <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+            <Route path="/create" element={<ProtectedRoute><CreatePost /></ProtectedRoute>} />
+            <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+            <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </div>
-      </AuthProvider>
-    </BrowserRouter>
-  )
+      </Router>
+    </AuthProvider>
+  );
 }
 
-export default App
+export default App;

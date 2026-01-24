@@ -1,88 +1,263 @@
+# Microblog Backend
 
-# Backend README
+Node.js + Express + MongoDB backend for the Microblog platform.
 
-This folder contains the Express + Mongoose backend for the micro-blog project. It provides simple authentication (JWT via httpOnly cookie), posts, and user endpoints used by the frontend.
+## 🚀 Quick Start
 
-## Quick start
-
-1. Copy the example environment file and fill values:
-
-```powershell
-cd backend
-Copy-Item .env.example .env
-# then edit .env and set JWT_SECRET and (optionally) MONGO_URI
-```
-
-2. Install dependencies and start in development mode:
-
-```powershell
+```bash
 npm install
 npm run dev
 ```
 
-By default the server listens on port 5000. You can override with the PORT environment variable.
+The server will run on http://localhost:5000
 
-## Environment variables (.env)
+## 🔧 Environment Variables
 
-Create a `.env` (copy from `.env.example`) with these entries:
+Create a `.env` file in the backend directory:
 
-- MONGO_URI - MongoDB connection string
-- JWT_SECRET - secret used to sign JWT tokens (use a long random value in production)
-- FRONTEND_URL - the frontend origin (used for CORS)
-- PORT - port the server listens on (default: 5000)
-- NODE_ENV - development|production
-
-## Troubleshooting: EADDRINUSE (port already in use)
-
-If you see an error like "EADDRINUSE: address already in use :::5000":
-
-- Find the process listening on port 5000 (PowerShell):
-
-```powershell
-netstat -ano | Select-String ":5000"
-# note the PID in the last column
+```env
+MONGO_URL=mongodb://localhost:27017/microblog
+JWT_SECRET=your_jwt_secret_key_change_this_in_production
+PORT=5000
 ```
 
-- Stop the process by PID (PowerShell):
+## 📦 Dependencies
 
-```powershell
-Stop-Process -Id <PID> -Force
-# or: taskkill /PID <PID> /F
+- **express** - Web framework
+- **mongoose** - MongoDB ODM
+- **bcryptjs** - Password hashing
+- **jsonwebtoken** - JWT token generation
+- **cors** - Cross-origin resource sharing
+- **dotenv** - Environment variables
+- **nodemon** - Development server with hot reload
+
+## 🏗 Project Structure
+
+```
+backend/
+├── models/              # Mongoose models
+│   ├── User.js         # User model
+│   └── Post.js         # Post model
+├── routes/             # API routes
+│   ├── auth.js         # Authentication routes
+│   └── posts.js        # Post CRUD routes
+├── middleware/         # Custom middleware
+│   └── auth.js         # JWT authentication middleware
+├── index.js            # Server entry point
+├── .env                # Environment variables
+└── package.json        # Dependencies
 ```
 
-- Or run the server on a different port temporarily:
+## 🗄 Database Models
 
-```powershell
-$env:PORT = 5001; npm run dev
+### User Model
+```javascript
+{
+  username: String (unique),
+  email: String (unique),
+  password: String (hashed),
+  timestamps: true
+}
 ```
 
-## Frontend API URL
-
-The frontend expects the API base URL in `VITE_API_URL`. If you run the backend on a non-default port, set `VITE_API_URL=http://localhost:<PORT>` in `frontend/.env` or when starting the frontend so requests go to the correct backend address.
-
-## Security notes
-
-- Do not commit real secrets. Keep `.env` out of version control.
-- Use a strong `JWT_SECRET` in production and enable secure cookie flags when serving over HTTPS.
-
-If you want, I can also add a short `backend/.env.example` for you with placeholder values.
-
-## Docker (build & run)
-
-Build a production image (will install only production dependencies):
-
-```powershell
-cd backend
-docker build -t microblog-backend:latest .
+### Post Model
+```javascript
+{
+  userId: String,
+  username: String,
+  content: String,
+  isPublic: Boolean,
+  likes: [String],
+  comments: [{
+    userId: String,
+    username: String,
+    text: String,
+    createdAt: Date
+  }],
+  timestamps: true
+}
 ```
 
-Run the container (map the port and pass runtime environment variables):
+## 🛣 API Routes
 
-```powershell
-docker run -p 5000:5000 --env-file .env --rm --name microblog-backend microblog-backend:latest
+### Authentication (`/auth`)
+
+#### Register
+```
+POST /auth/register
+Body: { username, email, password }
+Response: { token, user }
 ```
 
-Notes:
-- The image expects the app entry at `src/server.js`. If you changed the server file path, update the Dockerfile CMD.
-- Use `--env-file` or explicit `-e` flags to inject `MONGO_URI`, `JWT_SECRET`, etc. into the container.
+#### Login
+```
+POST /auth/login
+Body: { email, password }
+Response: { token, user }
+```
 
+### Posts (`/posts`) - All routes require authentication
+
+#### Create Post
+```
+POST /posts/create
+Headers: { Authorization: "Bearer <token>" }
+Body: { content, isPublic }
+Response: Post object
+```
+
+#### Get All Public Posts
+```
+GET /posts
+Headers: { Authorization: "Bearer <token>" }
+Response: Array of posts
+```
+
+#### Get User Posts
+```
+GET /posts/user/:userId
+Headers: { Authorization: "Bearer <token>" }
+Response: Array of user's posts
+```
+
+#### Update Post
+```
+PUT /posts/:id
+Headers: { Authorization: "Bearer <token>" }
+Body: { content, isPublic }
+Response: Updated post
+```
+
+#### Delete Post
+```
+DELETE /posts/:id
+Headers: { Authorization: "Bearer <token>" }
+Response: Success message
+```
+
+#### Like/Unlike Post
+```
+PUT /posts/like/:id
+Headers: { Authorization: "Bearer <token>" }
+Response: Updated post with likes
+```
+
+#### Add Comment
+```
+POST /posts/comment/:id
+Headers: { Authorization: "Bearer <token>" }
+Body: { text }
+Response: Updated post with comments
+```
+
+## 🔐 Authentication
+
+The API uses JWT (JSON Web Tokens) for authentication. Include the token in the Authorization header:
+
+```
+Authorization: Bearer <your_token_here>
+```
+
+## 🧪 Testing
+
+You can test the API using:
+- Postman
+- Thunder Client (VS Code extension)
+- cURL commands
+
+Example cURL:
+```bash
+# Register
+curl -X POST http://localhost:5000/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"username":"john","email":"john@example.com","password":"123456"}'
+
+# Login
+curl -X POST http://localhost:5000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"john@example.com","password":"123456"}'
+
+# Create Post
+curl -X POST http://localhost:5000/posts/create \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d '{"content":"My first post!","isPublic":true}'
+```
+
+## 🗄 MongoDB Setup
+
+### Local MongoDB
+
+Make sure MongoDB is installed and running:
+
+```bash
+# Windows
+net start MongoDB
+
+# Or run mongod directly
+mongod
+```
+
+### MongoDB Atlas (Cloud)
+
+1. Create account at mongodb.com/atlas
+2. Create a new cluster
+3. Get connection string
+4. Update MONGO_URL in .env
+
+```env
+MONGO_URL=mongodb+srv://<username>:<password>@cluster.mongodb.net/microblog?retryWrites=true&w=majority
+```
+
+## 📝 Scripts
+
+- `npm run dev` - Start development server with nodemon
+- `npm start` - Start production server
+
+## 🔒 Security Features
+
+- Password hashing with bcrypt (12 rounds)
+- JWT token expiration (7 days)
+- Protected routes with middleware
+- CORS enabled for frontend communication
+- Input validation
+
+## 🐛 Common Issues
+
+**MongoDB Connection Failed:**
+- Check if MongoDB is running
+- Verify MONGO_URL in .env
+- Check network connectivity for MongoDB Atlas
+
+**JWT Token Invalid:**
+- Token might be expired (7 days expiration)
+- JWT_SECRET mismatch
+- Token format incorrect (should be "Bearer <token>")
+
+**CORS Error:**
+- Verify CORS configuration in index.js
+- Check if frontend URL is allowed
+
+## 🚀 Deployment
+
+### Environment Variables for Production
+
+```env
+MONGO_URL=<your_production_mongodb_url>
+JWT_SECRET=<strong_random_secret>
+PORT=5000
+```
+
+### Deployment Platforms
+
+- **Heroku**
+- **Railway**
+- **AWS EC2**
+- **DigitalOcean**
+- **Render**
+
+Remember to:
+1. Set environment variables on the platform
+2. Update CORS to allow production frontend URL
+3. Use a strong JWT_SECRET
+4. Use MongoDB Atlas for cloud database
