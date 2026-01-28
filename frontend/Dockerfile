@@ -1,5 +1,5 @@
 # Multi-stage build for frontend
-FROM node:18-alpine AS builder
+FROM node:20-slim AS builder
 
 WORKDIR /app
 
@@ -12,7 +12,9 @@ RUN npm install
 # Copy application code
 COPY . .
 
-# Build application
+# Build application with API URL
+ARG REACT_APP_API_URL=http://microblog-backend:5000
+ENV REACT_APP_API_URL=${REACT_APP_API_URL}
 RUN npm run build
 
 # Production stage with nginx

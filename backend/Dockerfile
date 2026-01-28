@@ -1,5 +1,5 @@
 # Multi-stage build for backend
-FROM node:18-alpine AS builder
+FROM node:20-slim AS builder
 
 WORKDIR /app
 
@@ -13,13 +13,13 @@ RUN npm install
 COPY . .
 
 # Production stage
-FROM node:18-alpine
+FROM node:20-slim
 
 WORKDIR /app
 
 # Copy from builder
 COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app . ./
+COPY --from=builder /app/ ./
 
 # Expose port
 EXPOSE 5000
