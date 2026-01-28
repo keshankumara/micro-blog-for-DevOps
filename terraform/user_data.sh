@@ -2,15 +2,15 @@
 set -e
 
 # Update system
-yum update -y
+apt-get update -y
 
 # Install Docker
-amazon-linux-extras install docker -y
+apt-get install -y docker.io docker-compose
 systemctl start docker
 systemctl enable docker
-usermod -aG docker ec2-user
+usermod -aG docker ubuntu
 
-# Allow ec2-user to run docker without logout
+# Allow ubuntu to run docker without logout
 newgrp docker <<EOF
 docker --version
 EOF
@@ -41,14 +41,14 @@ docker run -d --restart unless-stopped \
   -e NODE_ENV=production \
   -e MONGO_URL='${mongo_url}' \
   -e JWT_SECRET='your-secret-key-change-me' \
-  --name backend \
+  --name microblog-backend \
   --network microblog-network \
   ${dockerhub_username}/microblog-backend:latest
 
 # Run frontend
 docker run -d --restart unless-stopped \
-  -p 80:3000 \
-  --name frontend \
+  -p 80:80 \
+  --name microblog-frontend \
   --network microblog-network \
   ${dockerhub_username}/microblog-frontend:latest
 
