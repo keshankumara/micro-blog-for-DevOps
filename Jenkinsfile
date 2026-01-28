@@ -53,6 +53,40 @@ pipeline {
                 }
             }
         }
+
+        stage('Deploy to EC2') {
+            steps {
+                withCredentials([sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+                    sh '''
+                        echo "Deploying to EC2..."
+                        ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${SSH_USER}@13.223.88.252 << 'EOF'
+                            # Pull latest images
+                            sudo docker pull keshan01/microblog-backend:latest
+                            sudo docker pull keshan01/microblog-frontend:latest
+                            
+                            # Restart backend
+                            sudo docker stop microblog-backend || true
+                            sudo docker rm microblog-backend || true
+                            sudo docker run -d --name microblog-backend --network microblog-network \
+                              -p 5000:5000 --restart unless-stopped \
+                              -e NODE_ENV=production \
+                              -e MONGO_URL='${MONGO_URL}' \
+                              -e JWT_SECRET='your-secret-key-change-me' \
+                              keshan01/microblog-backend:latest
+                            
+                            # Restart frontend
+                            sudo docker stop microblog-frontend || true
+                            sudo docker rm microblog-frontend || true
+                            sudo docker run -d --name microblog-frontend --network microblog-network \
+                              -p 80:80 --restart unless-stopped \
+                              keshan01/microblog-frontend:latest
+                            
+                            echo "Deployment completed!"
+EOF
+                    '''
+                }
+            }
+        }
     }
     
     post {

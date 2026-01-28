@@ -71,6 +71,18 @@
         networks:
           - name: microblog-network
 
+    - name: Deploy Watchtower (Auto-update containers)
+      docker_container:
+        name: watchtower
+        image: containrrr/watchtower:latest
+        state: started
+        restart_policy: unless-stopped
+        volumes:
+          - /var/run/docker.sock:/var/run/docker.sock
+        command: --interval 300 --cleanup
+        env:
+          WATCHTOWER_NOTIFICATIONS: "off"
+
     - name: Wait for backend to be healthy
       uri:
         url: "http://13.223.88.252:5000"
