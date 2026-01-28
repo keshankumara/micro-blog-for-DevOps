@@ -217,6 +217,7 @@ The frontend will run on http://localhost:3000
 
 ## 👨‍💻 Author
 
+Keshan Kumara
 Built with ❤️ for learning Full-Stack Development and DevOps
 
 ---
