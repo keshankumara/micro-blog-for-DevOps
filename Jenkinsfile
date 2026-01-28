@@ -1,140 +1,70 @@
 pipeline {
     agent any
-
+    
     environment {
-        REGISTRY = 'docker.io'
-        REGISTRY_CREDENTIALS = 'docker-registry-credentials'
-        IMAGE_NAME_BACKEND = 'microblog-backend'
-        IMAGE_NAME_FRONTEND = 'microblog-frontend'
-        IMAGE_TAG = "${BUILD_NUMBER}"
+        DOCKER_REGISTRY = 'docker.io'
+        BACKEND_IMAGE = "microblog-backend:latest"
+        FRONTEND_IMAGE = "microblog-frontend:latest"
+        GIT_REPO = 'https://github.com/keshankumara/micro-blog-for-DevOps.git'
+        GIT_BRANCH = 'main'
     }
-
+    
     stages {
-        stage('Checkout') {
+        stage('Checkout from GitHub') {
             steps {
-                script {
-                    echo '🔄 Checking out code from repository...'
-                    checkout scm
-                }
+                echo "Cloning from GitHub repository..."
+                sh '''
+                    rm -rf ./* || true
+                    git clone -b ${GIT_BRANCH} ${GIT_REPO} .
+                    echo "Repository cloned successfully"
+                '''
             }
         }
-
-        stage('Build Backend') {
+        
+        stage('Build Docker Images') {
             steps {
-                script {
-                    echo '🔨 Building backend Docker image...'
-                    dir('backend') {
-                        sh '''
-                            docker build -t ${IMAGE_NAME_BACKEND}:${IMAGE_TAG} .
-                            docker tag ${IMAGE_NAME_BACKEND}:${IMAGE_TAG} ${IMAGE_NAME_BACKEND}:latest
-                        '''
-                    }
-                }
+                sh '''
+                    echo "Building Docker images..."
+                    docker build -t ${BACKEND_IMAGE} ./backend
+                    docker build -t ${FRONTEND_IMAGE} ./frontend
+                    echo "Docker images built successfully"
+                '''
             }
         }
-
-        stage('Build Frontend') {
+        
+        stage('Push to Docker Hub') {
             steps {
-                script {
-                    echo '🔨 Building frontend Docker image...'
-                    dir('frontend') {
-                        sh '''
-                            docker build -t ${IMAGE_NAME_FRONTEND}:${IMAGE_TAG} .
-                            docker tag ${IMAGE_NAME_FRONTEND}:${IMAGE_TAG} ${IMAGE_NAME_FRONTEND}:latest
-                        '''
-                    }
-                }
-            }
-        }
-
-        stage('Test') {
-            steps {
-                script {
-                    echo '🧪 Running tests...'
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                     sh '''
-                        echo "Running backend tests..."
-                        cd backend && npm test || true
-                        cd ..
-                        echo "Running frontend tests..."
-                        cd frontend && npm test || true
-                    '''
-                }
-            }
-        }
-
-        stage('Push Images') {
-            when {
-                branch 'main'
-            }
-            steps {
-                script {
-                    echo '📤 Pushing images to registry...'
-                    withCredentials([usernamePassword(credentialsId: env.REGISTRY_CREDENTIALS, usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                        sh '''
-                            echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-                            docker tag ${IMAGE_NAME_BACKEND}:${IMAGE_TAG} ${REGISTRY}/${DOCKER_USER}/${IMAGE_NAME_BACKEND}:${IMAGE_TAG}
-                            docker tag ${IMAGE_NAME_FRONTEND}:${IMAGE_TAG} ${REGISTRY}/${DOCKER_USER}/${IMAGE_NAME_FRONTEND}:${IMAGE_TAG}
-                            docker push ${REGISTRY}/${DOCKER_USER}/${IMAGE_NAME_BACKEND}:${IMAGE_TAG}
-                            docker push ${REGISTRY}/${DOCKER_USER}/${IMAGE_NAME_FRONTEND}:${IMAGE_TAG}
-                            docker logout
-                        '''
-                    }
-                }
-            }
-        }
-
-        stage('Deploy') {
-            when {
-                branch 'main'
-            }
-            steps {
-                script {
-                    echo '🚀 Deploying application...'
-                    sh '''
-                        docker-compose down || true
-                        docker-compose up -d
-                        sleep 10
-                        docker-compose ps
-                    '''
-                }
-            }
-        }
-
-        stage('Health Check') {
-            steps {
-                script {
-                    echo '❤️ Performing health checks...'
-                    sh '''
-                        echo "Checking backend health..."
-                        curl -f http://localhost:5000/ || exit 1
-                        echo "Backend is healthy!"
+                        echo "Logging into Docker Hub..."
+                        echo ${DOCKER_PASS} | docker login -u ${DOCKER_USER} --password-stdin
                         
-                        echo "Checking frontend health..."
-                        curl -f http://localhost/ || exit 1
-                        echo "Frontend is healthy!"
+                        echo "Tagging images..."
+                        docker tag ${BACKEND_IMAGE} ${DOCKER_USER}/${BACKEND_IMAGE}
+                        docker tag ${FRONTEND_IMAGE} ${DOCKER_USER}/${FRONTEND_IMAGE}
+                        
+                        echo "Pushing images to Docker Hub..."
+                        docker push ${DOCKER_USER}/${BACKEND_IMAGE}
+                        docker push ${DOCKER_USER}/${FRONTEND_IMAGE}
+                        
+                        docker logout
+                        echo "Push completed successfully"
                     '''
                 }
             }
         }
     }
-
+    
     post {
-        always {
-            script {
-                echo '📊 Cleaning up...'
-                sh 'docker system prune -f || true'
-            }
-        }
         success {
-            script {
-                echo '✅ Pipeline completed successfully!'
-            }
+            echo "✓ Pipeline completed successfully"
         }
         failure {
-            script {
-                echo '❌ Pipeline failed. Check logs for details.'
-                sh 'docker-compose logs || true'
-            }
+            echo "✗ Pipeline failed"
+        }
+        always {
+            cleanWs()
         }
     }
 }
+

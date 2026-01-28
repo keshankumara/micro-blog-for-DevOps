@@ -1,0 +1,15 @@
+# AWS Configuration
+aws_region    = "us-east-1"
+instance_type = "t2.micro"
+key_name      = "microblog-key"
+
+# Docker Configuration
+dockerhub_username = "keshan01"
+
+# Network Configuration
+vpc_cidr    = "10.0.0.0/16"
+subnet_cidr = "10.0.1.0/24"
+
+# 🔐 SECRETS (DO NOT COMMIT terraform.tfvars to GitHub)
+# Copy this file to terraform.tfvars and fill in your actual MongoDB URI
+mongo_url = "mongodb+srv://devops:devops@cluster0.bynjmyx.mongodb.net/?appName=Cluster0"
