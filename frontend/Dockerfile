@@ -1,37 +1,55 @@
-# Multi-stage build for frontend
-FROM node:20-slim AS builder
+# Multi-stage build for optimized frontend image
+# Stage 1: Build stage
+FROM node:20-alpine AS builder
 
+# Set working directory
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
 
 # Install dependencies
-RUN npm install
+RUN npm ci && \
+    npm cache clean --force
 
-# Copy application code
+# Copy source code
 COPY . .
 
-# Build application with API URL
-ARG REACT_APP_API_URL=http://microblog-backend:5000
-ENV REACT_APP_API_URL=${REACT_APP_API_URL}
+# Build the application
 RUN npm run build
 
-# Production stage with nginx
-FROM nginx:alpine
+# Stage 2: Production stage with Nginx
+FROM nginx:1.25-alpine
 
-# Copy built application from builder
-COPY --from=builder /app/dist /usr/share/nginx/html
+# Install curl for health checks
+RUN apk add --no-cache curl
 
-# Copy nginx configuration
+# Remove default nginx config
+RUN rm /etc/nginx/conf.d/default.conf
+
+# Copy custom nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Expose port 80 (will map to host 81 in Docker Compose)
+# Copy built assets from builder stage
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Set proper permissions
+RUN chown -R nginx:nginx /usr/share/nginx/html && \
+    chown -R nginx:nginx /var/cache/nginx && \
+    chown -R nginx:nginx /var/log/nginx && \
+    chmod -R 755 /usr/share/nginx/html && \
+    touch /var/run/nginx.pid && \
+    chown -R nginx:nginx /var/run/nginx.pid
+
+# Expose port
 EXPOSE 80
 
-# Health check (internal)
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget --quiet --tries=1 --spider http://localhost/ || exit 1
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost/health || exit 1
+
+# Switch to non-root user
+USER nginx
 
 # Start nginx
 CMD ["nginx", "-g", "daemon off;"]
