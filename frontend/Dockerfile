@@ -26,12 +26,12 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 # Copy nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Expose port
+# Expose port 80 (will map to host 81 in Docker Compose)
 EXPOSE 80
 
-# Health check
+# Health check (internal)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget --quiet --tries=1 --spider http://54.173.187.235/ || exit 1
+  CMD wget --quiet --tries=1 --spider http://localhost/ || exit 1
 
 # Start nginx
 CMD ["nginx", "-g", "daemon off;"]

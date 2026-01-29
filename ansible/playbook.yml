@@ -6,6 +6,9 @@
 
   tasks:
 
+    # --------------------------
+    # Install Docker & Docker Compose
+    # --------------------------
     - name: Update APT and install Docker & Docker Compose
       apt:
         name:
@@ -25,22 +28,32 @@
         username: "{{ dockerhub_username }}"
         password: "{{ dockerhub_password }}"
 
+    # --------------------------
+    # Ensure project directory exists
+    # --------------------------
     - name: Ensure project directory exists
       file:
         path: /home/ubuntu/micro-blog-for-DevOps
         state: directory
         mode: '0755'
 
+    # --------------------------
+    # Copy docker-compose.yml
+    # --------------------------
     - name: Copy docker-compose.yml to server
       copy:
         src: ../docker-compose.yml
         dest: /home/ubuntu/micro-blog-for-DevOps/docker-compose.yml
 
+    # --------------------------
+    # Create .env file
+    # --------------------------
     - name: Create .env file for Docker Compose
       copy:
         dest: /home/ubuntu/micro-blog-for-DevOps/.env
         content: |
-          MONGODB_URI={{ mongodb_uri }}
+          MONGO_URL={{ mongodb_uri }}
+          JWT_SECRET={{ jwt_secret }}
           BACKEND_PORT={{ backend_port }}
           FRONTEND_PORT={{ frontend_port }}
           BACKEND_IMAGE={{ dockerhub_username }}/{{ backend_image }}
@@ -50,6 +63,22 @@
         owner: ubuntu
         group: ubuntu
 
+    # --------------------------
+    # Cleanup old containers & networks
+    # --------------------------
+    - name: Stop all running containers
+      shell: |
+        sudo docker rm -f $(sudo docker ps -aq) || true
+      ignore_errors: yes
+
+    - name: Remove unused networks
+      shell: |
+        sudo docker network prune -f
+      ignore_errors: yes
+
+    # --------------------------
+    # Pull Docker images
+    # --------------------------
     - name: Pull Docker images
       shell: |
         docker pull {{ dockerhub_username }}/{{ backend_image }}
@@ -57,6 +86,9 @@
       register: pull_result
       ignore_errors: yes
 
+    # --------------------------
+    # Run Docker Compose
+    # --------------------------
     - name: Run Docker Compose down (cleanup)
       shell: cd /home/ubuntu/micro-blog-for-DevOps && docker-compose down
       ignore_errors: yes
@@ -65,8 +97,10 @@
       shell: cd /home/ubuntu/micro-blog-for-DevOps && docker-compose up -d
       environment:
         MONGODB_URI: "{{ mongodb_uri }}"
-        BACKEND_PORT: "{{ backend_port }}"
-        FRONTEND_PORT: "{{ frontend_port }}"
+        BACKEND_CONTAINER_PORT: 3000
+        BACKEND_HOST_PORT: 3001
+        FRONTEND_CONTAINER_PORT: 5173
+        FRONTEND_HOST_PORT: 81
         BACKEND_IMAGE: "{{ dockerhub_username }}/{{ backend_image }}"
         FRONTEND_IMAGE: "{{ dockerhub_username }}/{{ frontend_image }}"
       register: compose_result
@@ -76,6 +110,9 @@
       pause:
         seconds: 10
 
+    # --------------------------
+    # Status & logs
+    # --------------------------
     - name: Check Docker Compose status
       shell: cd /home/ubuntu/micro-blog-for-DevOps && docker-compose ps
       register: compose_status

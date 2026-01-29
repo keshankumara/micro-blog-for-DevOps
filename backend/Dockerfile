@@ -21,12 +21,12 @@ WORKDIR /app
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/ ./
 
-# Expose port
+# Expose port (matches .env BACKEND_PORT)
 EXPOSE 5000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://54.173.187.235:5000', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
+# Health check - use localhost, not public IP
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:5000/ || exit 1
 
 # Run application
-CMD ["npm", "start"]
+CMD ["node", "index.js"]

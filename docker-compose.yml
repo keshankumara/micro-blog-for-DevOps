@@ -1,4 +1,4 @@
-version: "3.9"
+version: '3.9'
 
 services:
   backend:
@@ -6,34 +6,29 @@ services:
     container_name: microblog-backend
     restart: always
     ports:
-      - "${BACKEND_PORT}:5000"
+      - "${BACKEND_PORT}:5000"   # match Dockerfile backend port
     environment:
-      - MONGODB_URI=${MONGODB_URI}
+      - MONGO_URL=${MONGODB_URI}
+      - JWT_SECRET=${JWT_SECRET}
       - PORT=5000
-      - NODE_ENV=production
-    networks:
-      - microblog-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://54.173.187.235:5000/health"] 
-      interval: 10s
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:5000/"]
+      interval: 30s
       timeout: 5s
-      retries: 5
-      start_period: 30s
+      retries: 3
 
   frontend:
     image: "${FRONTEND_IMAGE}"
     container_name: microblog-frontend
     restart: always
-    ports:
-      - "${FRONTEND_PORT}:80"
-    environment:
-      - VITE_API_URL=http://microblog-backend:5000/api
     depends_on:
       backend:
         condition: service_healthy
-    networks:
-      - microblog-network
-
-networks:
-  microblog-network:
-    driver: bridge
+    ports:
+      - "${FRONTEND_PORT}:80"    # Nginx serves production on port 80
+    environment:
+      - VITE_BACKEND_URL=http://microblog-backend:5000  # container-to-container
+    build:
+      context: ./frontend
+      args:
+        REACT_APP_API_URL=http://microblog-backend:5000
