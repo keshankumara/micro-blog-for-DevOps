@@ -1,0 +1,70 @@
+#!/bin/bash
+set -euo pipefail
+
+# Update and install Docker
+if command -v dnf >/dev/null 2>&1; then
+  dnf -y update
+  dnf -y install docker
+elif command -v yum >/dev/null 2>&1; then
+  yum -y update
+  yum -y install docker
+fi
+
+systemctl enable docker
+systemctl start docker
+usermod -aG docker ec2-user || true
+
+# Install Docker Compose v2 plugin
+mkdir -p /usr/local/lib/docker/cli-plugins
+curl -SL "https://github.com/docker/compose/releases/download/v2.24.7/docker-compose-linux-x86_64" -o /usr/local/lib/docker/cli-plugins/docker-compose
+chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+
+# App directory
+mkdir -p /opt/microblog
+cd /opt/microblog
+
+# Create .env
+cat > .env <<EOF
+MONGO_URL=${mongo_url}
+JWT_SECRET=${jwt_secret}
+BACKEND_PORT=${backend_port}
+NODE_ENV=production
+FRONTEND_PORT=${frontend_port}
+EOF
+
+# Create docker-compose.yml
+cat > docker-compose.yml <<EOF
+version: "3.8"
+services:
+  backend:
+    image: ${backend_image}
+    container_name: microblog-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      PORT: ${backend_port}
+    ports:
+      - "${backend_port}:5000"
+    networks:
+      - microblog-network
+
+  frontend:
+    image: ${frontend_image}
+    container_name: microblog-frontend
+    restart: unless-stopped
+    ports:
+      - "${frontend_port}:80"
+    depends_on:
+      - backend
+    networks:
+      - microblog-network
+
+networks:
+  microblog-network:
+    driver: bridge
+EOF
+
+# Pull and run
+/usr/local/lib/docker/cli-plugins/docker-compose pull
+/usr/local/lib/docker/cli-plugins/docker-compose up -d

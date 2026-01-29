@@ -87,3 +87,9 @@ coverage/
 
 # Ansible
 ansible/
+
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
