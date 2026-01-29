@@ -223,7 +223,7 @@ docker-compose up -d
 
 ## 👨‍💻 Author
 
-Keshan Kumara
+ -- Keshan Kumara --
 Built with ❤️ for learning Full-Stack Development and DevOps
 
 ---
