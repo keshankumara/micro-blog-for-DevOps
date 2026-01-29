@@ -9,14 +9,14 @@ npm install
 npm run dev
 ```
 
-The server will run on http://localhost:5000
+The server will run on http://54.173.187.235:5000
 
 ## 🔧 Environment Variables
 
 Create a `.env` file in the backend directory:
 
 ```env
-MONGO_URL=mongodb://localhost:27017/microblog
+MONGO_URL=mongodb://54.173.187.235:27017/microblog
 JWT_SECRET=your_jwt_secret_key_change_this_in_production
 PORT=5000
 ```
@@ -168,17 +168,17 @@ You can test the API using:
 Example cURL:
 ```bash
 # Register
-curl -X POST http://localhost:5000/auth/register \
+curl -X POST http://54.173.187.235:5000/auth/register \
   -H "Content-Type: application/json" \
   -d '{"username":"john","email":"john@example.com","password":"123456"}'
 
 # Login
-curl -X POST http://localhost:5000/auth/login \
+curl -X POST http://54.173.187.235:5000/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"john@example.com","password":"123456"}'
 
 # Create Post
-curl -X POST http://localhost:5000/posts/create \
+curl -X POST http://54.173.187.235:5000/posts/create \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -d '{"content":"My first post!","isPublic":true}'

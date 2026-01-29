@@ -90,7 +90,7 @@ npm install
 
 Create a `.env` file in the backend directory (already created):
 ```env
-MONGO_URL=mongodb://localhost:27017/microblog
+MONGO_URL=mongodb://54.173.187.235:27017/microblog
 JWT_SECRET=your_jwt_secret_key_change_this_in_production
 PORT=5000
 ```
@@ -109,7 +109,7 @@ Run the backend server:
 npm run dev
 ```
 
-The backend will run on http://localhost:5000
+The backend will run on http://54.173.187.235:5000
 
 #### 3. Setup Frontend
 
@@ -125,7 +125,7 @@ Run the frontend:
 npm run dev
 ```
 
-The frontend will run on http://localhost:3000
+The frontend will run on http://54.173.187.235:3000
 
 ## 📖 API Endpoints
 
@@ -205,8 +205,8 @@ export JWT_SECRET="your-jwt-secret"
 docker-compose up -d
 
 # Access the application
-# Frontend: http://localhost
-# Backend: http://localhost:5000
+# Frontend: http://54.173.187.235
+# Backend: http://54.173.187.235:5000
 ```
 
 ## 📚 Future Enhancements

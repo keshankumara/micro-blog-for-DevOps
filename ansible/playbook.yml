@@ -1,0 +1,107 @@
+- name: Deploy Dockerized Microblog App
+  hosts: app_server
+  become: yes
+  vars_files:
+    - vars.yml
+
+  tasks:
+
+    - name: Update APT and install Docker & Docker Compose
+      apt:
+        name:
+          - docker.io
+          - docker-compose
+        state: present
+        update_cache: yes
+
+    - name: Start Docker service
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Log in to Docker Hub
+      community.docker.docker_login:
+        username: "{{ dockerhub_username }}"
+        password: "{{ dockerhub_password }}"
+
+    - name: Ensure project directory exists
+      file:
+        path: /home/ubuntu/micro-blog-for-DevOps
+        state: directory
+        mode: '0755'
+
+    - name: Copy docker-compose.yml to server
+      copy:
+        src: ../docker-compose.yml
+        dest: /home/ubuntu/micro-blog-for-DevOps/docker-compose.yml
+
+    - name: Create .env file for Docker Compose
+      copy:
+        dest: /home/ubuntu/micro-blog-for-DevOps/.env
+        content: |
+          MONGODB_URI={{ mongodb_uri }}
+          BACKEND_PORT={{ backend_port }}
+          FRONTEND_PORT={{ frontend_port }}
+          BACKEND_IMAGE={{ dockerhub_username }}/{{ backend_image }}
+          FRONTEND_IMAGE={{ dockerhub_username }}/{{ frontend_image }}
+          NODE_ENV=production
+        mode: '0644'
+        owner: ubuntu
+        group: ubuntu
+
+    - name: Pull Docker images
+      shell: |
+        docker pull {{ dockerhub_username }}/{{ backend_image }}
+        docker pull {{ dockerhub_username }}/{{ frontend_image }}
+      register: pull_result
+      ignore_errors: yes
+
+    - name: Run Docker Compose down (cleanup)
+      shell: cd /home/ubuntu/micro-blog-for-DevOps && docker-compose down
+      ignore_errors: yes
+
+    - name: Run Docker Compose up
+      shell: cd /home/ubuntu/micro-blog-for-DevOps && docker-compose up -d
+      environment:
+        MONGODB_URI: "{{ mongodb_uri }}"
+        BACKEND_PORT: "{{ backend_port }}"
+        FRONTEND_PORT: "{{ frontend_port }}"
+        BACKEND_IMAGE: "{{ dockerhub_username }}/{{ backend_image }}"
+        FRONTEND_IMAGE: "{{ dockerhub_username }}/{{ frontend_image }}"
+      register: compose_result
+      ignore_errors: yes
+
+    - name: Wait for services to stabilize
+      pause:
+        seconds: 10
+
+    - name: Check Docker Compose status
+      shell: cd /home/ubuntu/micro-blog-for-DevOps && docker-compose ps
+      register: compose_status
+
+    - name: Show backend logs
+      shell: docker logs microblog-backend 2>&1 | tail -30
+      register: backend_logs
+      ignore_errors: yes
+
+    - name: Show frontend logs
+      shell: docker logs microblog-frontend 2>&1 | tail -30
+      register: frontend_logs
+      ignore_errors: yes
+
+    - name: Print compose up result
+      debug:
+        msg: "{{ compose_result.stdout }}\n{{ compose_result.stderr }}"
+
+    - name: Print Docker Compose status
+      debug:
+        var: compose_status.stdout_lines
+
+    - name: Print backend logs
+      debug:
+        var: backend_logs.stdout_lines
+
+    - name: Print frontend logs
+      debug:
+        var: frontend_logs.stdout_lines

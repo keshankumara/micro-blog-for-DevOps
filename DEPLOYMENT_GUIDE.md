@@ -75,10 +75,10 @@ docker logs microblog-backend
 docker logs microblog-frontend
 
 # Test backend
-curl http://localhost:5000
+curl http://54.173.187.235:5000
 
 # Access frontend
-open http://localhost
+open http://54.173.187.235
 ```
 
 ---
