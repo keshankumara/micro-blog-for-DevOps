@@ -6,12 +6,33 @@ const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const { login } = useContext(AuthContext);
+  const { login, loading } = useContext(AuthContext);
   const navigate = useNavigate();
+
+  const validateEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    
+    // Validation
+    if (!email || !password) {
+      setError('Email and password are required');
+      return;
+    }
+
+    if (!validateEmail(email)) {
+      setError('Please enter a valid email');
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
     
     const result = await login(email, password);
     if (result.success) {
@@ -42,9 +63,9 @@ const Login = () => {
             <input
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-blue"
+              onChange={(e) => setEmail(e.target.value.trim())}
+              disabled={loading}
+              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-blue disabled:bg-gray-100"
               placeholder="Enter your email"
             />
           </div>
@@ -57,17 +78,18 @@ const Login = () => {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-blue"
+              disabled={loading}
+              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-blue disabled:bg-gray-100"
               placeholder="Enter your password"
             />
           </div>
 
           <button
             type="submit"
-            className="w-full bg-primary-blue text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition"
+            disabled={loading}
+            className="w-full bg-primary-blue text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
-            Login
+            {loading ? 'Logging in...' : 'Login'}
           </button>
         </form>
 

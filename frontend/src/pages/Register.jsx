@@ -8,20 +8,45 @@ const Register = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
-  const { register } = useContext(AuthContext);
+  const { register, loading } = useContext(AuthContext);
   const navigate = useNavigate();
+
+  const validateEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const validateUsername = (username) => {
+    return username && username.length >= 3 && username.length <= 50;
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
+    // Validation
+    if (!username || !email || !password || !confirmPassword) {
+      setError('All fields are required');
+      return;
+    }
+
+    if (!validateUsername(username)) {
+      setError('Username must be between 3 and 50 characters');
+      return;
+    }
+
+    if (!validateEmail(email)) {
+      setError('Please enter a valid email');
       return;
     }
 
     if (password.length < 6) {
       setError('Password must be at least 6 characters');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
       return;
     }
 
@@ -54,11 +79,13 @@ const Register = () => {
             <input
               type="text"
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-green"
+              onChange={(e) => setUsername(e.target.value.trim())}
+              disabled={loading}
+              maxLength="50"
+              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-green disabled:bg-gray-100"
               placeholder="Choose a username"
             />
+            <p className="text-xs text-gray-text mt-1">3-50 characters</p>
           </div>
 
           <div>
@@ -68,9 +95,9 @@ const Register = () => {
             <input
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-green"
+              onChange={(e) => setEmail(e.target.value.trim())}
+              disabled={loading}
+              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-green disabled:bg-gray-100"
               placeholder="Enter your email"
             />
           </div>
@@ -83,10 +110,12 @@ const Register = () => {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-green"
+              disabled={loading}
+              minLength="6"
+              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-green disabled:bg-gray-100"
               placeholder="Create a password"
             />
+            <p className="text-xs text-gray-text mt-1">Minimum 6 characters</p>
           </div>
 
           <div>
@@ -97,17 +126,19 @@ const Register = () => {
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-green"
+              disabled={loading}
+              minLength="6"
+              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-green disabled:bg-gray-100"
               placeholder="Confirm your password"
             />
           </div>
 
           <button
             type="submit"
-            className="w-full bg-primary-green text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition"
+            disabled={loading}
+            className="w-full bg-primary-green text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
-            Register
+            {loading ? 'Creating Account...' : 'Register'}
           </button>
         </form>
 

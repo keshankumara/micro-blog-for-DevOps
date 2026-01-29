@@ -1,4 +1,4 @@
-import { useState, useContext } from 'react';
+import { useState, useContext, useCallback } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { api } from '../api/axios';
 import CommentBox from './CommentBox';
@@ -7,48 +7,91 @@ const PostCard = ({ post, onUpdate, onDelete }) => {
   const { user } = useContext(AuthContext);
   const [showComments, setShowComments] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [editContent, setEditContent] = useState(post.content);
+  const [editContent, setEditContent] = useState(post?.content || '');
+  const [error, setError] = useState(null);
+
+  // Validate post object
+  if (!post || !post._id) {
+    return null;
+  }
 
   const isOwner = user && user.id === post.userId;
-  const hasLiked = post.likes?.includes(user?.id);
+  const hasLiked = post.likes?.some(likeId => likeId === user?.id);
 
-  const handleLike = async () => {
+  const handleLike = useCallback(async () => {
     try {
+      setError(null);
       const response = await api.put(`/posts/like/${post._id}`);
-      onUpdate(response.data);
+      if (response.data && onUpdate) {
+        onUpdate(response.data);
+      }
     } catch (error) {
       console.error('Error liking post:', error);
+      setError('Failed to like post');
     }
-  };
+  }, [post._id, onUpdate]);
 
-  const handleEdit = async () => {
-    if (!editContent.trim()) return;
+  const handleEdit = useCallback(async () => {
+    if (!editContent.trim()) {
+      setError('Content cannot be empty');
+      return;
+    }
+
     try {
-      const response = await api.put(`/posts/${post._id}`, { content: editContent });
-      onUpdate(response.data);
-      setIsEditing(false);
+      setError(null);
+      const response = await api.put(`/posts/${post._id}`, { content: editContent.trim() });
+      if (response.data && onUpdate) {
+        onUpdate(response.data);
+        setIsEditing(false);
+      }
     } catch (error) {
       console.error('Error updating post:', error);
+      setError(error.response?.data?.message || 'Failed to update post');
     }
-  };
+  }, [post._id, editContent, onUpdate]);
 
-  const handleDelete = async () => {
+  const handleDelete = useCallback(async () => {
     if (window.confirm('Are you sure you want to delete this post?')) {
       try {
+        setError(null);
         await api.delete(`/posts/${post._id}`);
-        onDelete(post._id);
+        if (onDelete) {
+          onDelete(post._id);
+        }
       } catch (error) {
         console.error('Error deleting post:', error);
+        setError(error.response?.data?.message || 'Failed to delete post');
       }
     }
-  };
+  }, [post._id, onDelete]);
 
-  const handleComment = async (text) => {
+  const handleComment = useCallback(async (text) => {
+    if (!text || !text.trim()) {
+      setError('Comment cannot be empty');
+      return;
+    }
+
     try {
-      const response = await api.post(`/posts/comment/${post._id}`, { text });
-      onUpdate(response.data);
+      setError(null);
+      const response = await api.post(`/posts/comment/${post._id}`, { text: text.trim() });
+      if (response.data && onUpdate) {
+        onUpdate(response.data);
+      }
     } catch (error) {
       console.error('Error commenting:', error);
+      setError(error.response?.data?.message || 'Failed to add comment');
+    }
+  }, [post._id, onUpdate]);
+
+  const formatDate = (dateString) => {
+    try {
+      return new Date(dateString).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch {
+      return 'Date unavailable';
     }
   };
 
@@ -62,7 +105,7 @@ const PostCard = ({ post, onUpdate, onDelete }) => {
           <div>
             <h3 className="font-semibold text-gray-800">{post.username || 'Anonymous'}</h3>
             <p className="text-sm text-gray-text">
-              {new Date(post.createdAt).toLocaleDateString()}
+              {formatDate(post.createdAt)}
             </p>
           </div>
         </div>
@@ -73,6 +116,12 @@ const PostCard = ({ post, onUpdate, onDelete }) => {
         )}
       </div>
 
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded mb-4">
+          {error}
+        </div>
+      )}
+
       {isEditing ? (
         <div className="mb-4">
           <textarea
@@ -80,7 +129,11 @@ const PostCard = ({ post, onUpdate, onDelete }) => {
             onChange={(e) => setEditContent(e.target.value)}
             className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-primary-blue"
             rows="3"
+            maxLength="5000"
           />
+          <div className="text-sm text-gray-text mt-1">
+            {editContent.length} / 5000
+          </div>
           <div className="flex space-x-2 mt-2">
             <button
               onClick={handleEdit}
@@ -89,7 +142,11 @@ const PostCard = ({ post, onUpdate, onDelete }) => {
               Save
             </button>
             <button
-              onClick={() => setIsEditing(false)}
+              onClick={() => {
+                setIsEditing(false);
+                setEditContent(post.content);
+                setError(null);
+              }}
               className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400 transition"
             >
               Cancel
@@ -97,7 +154,7 @@ const PostCard = ({ post, onUpdate, onDelete }) => {
           </div>
         </div>
       ) : (
-        <p className="text-gray-800 mb-4 whitespace-pre-wrap">{post.content}</p>
+        <p className="text-gray-800 mb-4 whitespace-pre-wrap break-words">{post.content}</p>
       )}
 
       <div className="flex items-center space-x-6 border-t border-gray-200 pt-4">
