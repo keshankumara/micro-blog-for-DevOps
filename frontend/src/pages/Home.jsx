@@ -51,7 +51,7 @@ const Home = () => {
 
       {posts.length === 0 ? (
         <div className="bg-white rounded-lg shadow-md p-12 text-center">
-          <p className="text-gray-text text-lg">No posts yet. Be the first to create one!</p>
+          <p className="text-gray-text text-lg">No posts yet. Be the first to create one!!</p>
         </div>
       ) : (
         posts.map((post) => (
