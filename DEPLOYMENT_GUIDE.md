@@ -12,93 +12,73 @@ This guide shows how to deploy the Microblog application **securely** without ex
    - Create at https://www.mongodb.com/cloud/atlas
    - Get connection string: `mongodb+srv://user:password@cluster.mongodb.net/microblog`
 
-2. **AWS Account**
-   - Access key ID and secret key configured in `~/.aws/credentials`
+2. **Docker Hub Account**
+   - Sign up at https://hub.docker.com
 
 3. **Tools Installed**
-   - Terraform
-   - Ansible
    - Docker
-   - AWS CLI
+   - Docker Compose
 
 ---
 
 ## 🚀 Deployment Steps
 
-### Step 1: Configure Terraform (LOCAL ONLY)
+### Step 1: Configure Environment Variables
+
+Create a `.env` file in the project root:
 
 ```bash
-cd terraform
-
-# Copy example file
-cp terraform.tfvars.example terraform.tfvars
-
-# Edit with your actual MongoDB URI
-nano terraform.tfvars
+cp .env.example .env
 ```
 
-**Update `terraform.tfvars`:**
+**Update `.env`:**
 
-```hcl
-mongo_url = "mongodb+srv://YOUR_USERNAME:YOUR_PASSWORD@cluster.mongodb.net/microblog"
+```env
+MONGO_URL=mongodb+srv://YOUR_USERNAME:YOUR_PASSWORD@cluster.mongodb.net/microblog
+JWT_SECRET=your-secure-jwt-secret-key-change-this
+NODE_ENV=production
+PORT=5000
 ```
 
-⚠️ **IMPORTANT**: Never commit `terraform.tfvars` to GitHub!
+⚠️ **IMPORTANT**: Never commit `.env` to GitHub!
 
-### Step 2: Deploy Infrastructure
+### Step 2: Build Docker Images
 
 ```bash
-terraform init
-terraform validate
-terraform plan
-terraform apply -auto-approve
+# Build both backend and frontend images
+docker-compose build
 ```
 
-**Output will show:**
-```
-instance_public_ip = "X.X.X.X"
-```
-
-### Step 3: Update Ansible Inventory
-
-Edit `ansible/inventory.ini`:
-
-```ini
-[microblog_servers]
-X.X.X.X instance_id=i-xxxxx
-
-[microblog_servers:vars]
-ansible_user=ubuntu
-ansible_ssh_private_key_file=~/.ssh/microblog-key.pem
-```
-
-### Step 4: Deploy with Ansible
+### Step 3: Start the Application
 
 ```bash
-# Option A: Pass MongoDB URI via environment variable
-export MONGO_URL="mongodb+srv://YOUR_USERNAME:YOUR_PASSWORD@cluster.mongodb.net/microblog"
-ansible-playbook -i ansible/inventory.ini ansible/deploy.yml
+# Start both backend and frontend containers
+docker-compose up -d
 
-# Option B: Pass via command line
-ansible-playbook \
-  -i ansible/inventory.ini \
-  ansible/deploy.yml \
-  --extra-vars "mongo_url=mongodb+srv://..."
+# Check status
+docker-compose ps
+
+# View logs
+docker-compose logs -f
 ```
 
-### Step 5: Verify Deployment
+### Step 4: Verify Deployment
 
 ```bash
-# SSH into EC2
-ssh -i ~/.ssh/microblog-key.pem ubuntu@X.X.X.X
-
 # Check Docker containers
 docker ps
+
+# Check backend logs
 docker logs microblog-backend
+
+# Check frontend logs
 docker logs microblog-frontend
 
 # Test backend
 curl http://localhost:5000
+
+# Access frontend
+open http://localhost
 ```
 
 ---
@@ -106,17 +86,19 @@ curl http://localhost:5000
 ## 🔐 Security Best Practices
 
 ### ✅ DO:
-- [ ] Use `.gitignore` to exclude `terraform.tfvars`
+- [ ] Use `.env` file for all secrets (add to `.gitignore`)
 - [ ] Store MongoDB credentials in MongoDB Atlas (not in code)
 - [ ] Use environment variables for sensitive config
-- [ ] Use AWS SSM Parameter Store for production (future)
+- [ ] Never commit `.env` file to GitHub
 - [ ] Rotate credentials regularly
+- [ ] Use strong JWT secrets
 
 ### ❌ DON'T:
-- [ ] Commit `terraform.tfvars` to GitHub
+- [ ] Commit `.env` to GitHub
 - [ ] Hardcode MongoDB URI in Dockerfile
-- [ ] Log secrets in CloudWatch / Jenkins
+- [ ] Log secrets in console output
 - [ ] Use default passwords
+- [ ] Expose credentials in Docker images
 
 ---
 
@@ -126,82 +108,55 @@ curl http://localhost:5000
 
 Go to **Jenkins → Manage Jenkins → Credentials**
 
-Add:
+Add the following credentials:
 - **ID**: `MONGODB_URI`
 - **Secret**: Your MongoDB Atlas connection string
 - **Type**: Secret text
 
-### 2. Update Jenkinsfile
+### 2. Docker Hub Configuration
 
-```groovy
-pipeline {
-    agent any
-    
-    environment {
-        DOCKER_REGISTRY = 'docker.io'
-        DOCKERHUB_CREDS = credentials('dockerhub-credentials')
-    }
-    
-    stages {
-        stage('Build & Push') {
-            steps {
-                sh '''
-                docker build -t keshan01/microblog-backend:latest ./backend
-                docker build -t keshan01/microblog-frontend:latest ./frontend
-                
-                echo $DOCKERHUB_CREDS_PSW | docker login -u $DOCKERHUB_CREDS_USR --password-stdin
-                docker push keshan01/microblog-backend:latest
-                docker push keshan01/microblog-frontend:latest
-                '''
-            }
-        }
-        
-        stage('Deploy to AWS') {
-            steps {
-                withCredentials([string(credentialsId: 'MONGODB_URI', variable: 'MONGO_URI')]) {
-                    sh '''
-                    cd terraform
-                    terraform apply -auto-approve \
-                      -var="mongo_url=$MONGO_URI"
-                    '''
-                }
-            }
-        }
-    }
-}
-```
+Add Docker Hub credentials to Jenkins:
+- **ID**: `dockerhub-credentials`
+- **Username**: Your Docker Hub username
+- **Password**: Your Docker Hub token
 
 ---
 
-## 📁 File Structure
+## 📁 Project Structure
 
 ```
-devops-project/
-├── terraform/
-│   ├── main.tf                    # Infrastructure code
-│   ├── variables.tf               # Variable definitions (mongo_url is sensitive)
-│   ├── terraform.tfvars           # ❌ SECRETS - NOT IN GIT
-│   ├── terraform.tfvars.example   # ✅ TEMPLATE - IN GIT
-│   └── .gitignore                 # Excludes *.tfvars
-├── ansible/
-│   ├── inventory.ini              # Inventory (update IP)
-│   └── deploy.yml                 # Deployment playbook
-├── .env.example                   # Environment template
-├── Jenkinsfile                    # CI/CD pipeline
+micro-blog-for-DevOps/
+├── backend/
+│   ├── models/                # MongoDB models
+│   ├── routes/                # API routes
+│   ├── middleware/            # Auth middleware
+│   ├── Dockerfile             # Backend container
+│   ├── index.js               # Server entry point
+│   └── package.json
+├── frontend/
+│   ├── src/                   # React components
+│   ├── public/                # Static assets
+│   ├── Dockerfile             # Frontend container
+│   ├── vite.config.js         # Vite configuration
+│   └── package.json
+├── docker-compose.yml         # Compose configuration
+├── .env.example               # Environment template
+├── Jenkinsfile                # CI/CD pipeline
+├── DEPLOYMENT_GUIDE.md        # This file
 └── README.md
 ```
 
 ---
 
-## 🧠 How to Explain in Viva
+## 🧠 Key Security Principles
 
-> "We use environment variables to inject secrets like MongoDB URI at runtime. The actual values are never stored in code or Docker images. Terraform variables marked as `sensitive = true` are kept in local `terraform.tfvars` which is excluded from Git. This follows industry best practices for secrets management."
+> "We use environment variables to inject secrets like MongoDB URI at runtime. The actual values are never stored in code or Docker images. Sensitive configuration is kept in local `.env` files which are excluded from Git. This follows industry best practices for secrets management."
 
 ---
 
 ## 🔗 References
 
-- [Terraform Sensitive Variables](https://www.terraform.io/language/state/sensitive-data)
+- [Docker Compose Documentation](https://docs.docker.com/compose/)
 - [MongoDB Atlas Security](https://www.mongodb.com/docs/atlas/security/)
-- [AWS Secrets Manager](https://aws.amazon.com/secrets-manager/)
-- [Ansible Vault](https://docs.ansible.com/ansible/latest/user_guide/vault.html)
+- [Docker Security Best Practices](https://docs.docker.com/engine/security/)
+- [Environment Variables in Docker](https://docs.docker.com/compose/environment-variables/)

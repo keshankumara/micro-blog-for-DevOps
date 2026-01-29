@@ -192,16 +192,22 @@ The frontend will run on http://localhost:3000
 
 ## 🚀 Deployment
 
-### Backend Deployment
-1. Use MongoDB Atlas for cloud database
-2. Deploy to services like Heroku, Railway, or AWS
-3. Update environment variables
-4. Update CORS settings
+For detailed deployment instructions, see [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
 
-### Frontend Deployment
-1. Build the frontend: `npm run build`
-2. Deploy to Netlify, Vercel, or AWS S3
-3. Update API baseURL to production backend URL
+### Quick Docker Deployment
+
+```bash
+# Set environment variables
+export MONGO_URL="your-mongodb-connection-string"
+export JWT_SECRET="your-jwt-secret"
+
+# Start the application with Docker Compose
+docker-compose up -d
+
+# Access the application
+# Frontend: http://localhost
+# Backend: http://localhost:5000
+```
 
 ## 📚 Future Enhancements
 
