@@ -84,3 +84,6 @@ coverage/
 # CI/CD
 .github/workflows/*.log
 .gitlab-ci.log
+
+# Ansible
+ansible/
