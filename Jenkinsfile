@@ -5,22 +5,9 @@ pipeline {
         DOCKER_REGISTRY = 'docker.io'
         BACKEND_IMAGE = "microblog-backend:latest"
         FRONTEND_IMAGE = "microblog-frontend:latest"
-        GIT_REPO = 'https://github.com/keshankumara/micro-blog-for-DevOps.git'
-        GIT_BRANCH = 'main'
     }
     
     stages {
-        stage('Checkout from GitHub') {
-            steps {
-                echo "Cloning from GitHub repository..."
-                sh '''
-                    rm -rf ./* || true
-                    git clone -b ${GIT_BRANCH} ${GIT_REPO} .
-                    echo "Repository cloned successfully"
-                '''
-            }
-        }
-        
         stage('Build Docker Images') {
             steps {
                 sh '''
@@ -56,15 +43,8 @@ pipeline {
     }
     
     post {
-        success {
-            echo "✓ Pipeline completed successfully"
-        }
-        failure {
-            echo "✗ Pipeline failed"
-        }
-        always {
-            cleanWs()
-        }
+        success { echo "✓ Pipeline completed successfully" }
+        failure { echo "✗ Pipeline failed" }
+        always { cleanWs() }
     }
 }
-
