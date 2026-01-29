@@ -1,3 +1,10 @@
+# Environment variables - SENSITIVE DATA
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+
 # Logs
 logs
 *.log
@@ -7,10 +14,22 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies
 node_modules
+/node_modules/
+npm-debug.log
+yarn-error.log
+
+# Build outputs
 dist
 dist-ssr
-*.local
+.next
+out
+build
+
+# Local env files
+.env*.local
+.env*.backup
 
 # Editor directories and files
 .vscode/*
@@ -22,3 +41,23 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+*.swp
+*.swo
+*~
+
+# OS
+Thumbs.db
+ehthumbs.db
+desktop.ini
+.AppleDouble
+.LSOverride
+
+# Temporary files
+.tmp/
+.cache/
+*.bak
+*.backup
+
+# Testing
+.nyc_output/
+coverage/

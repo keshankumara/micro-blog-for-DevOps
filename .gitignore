@@ -14,29 +14,55 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+*.pnp
+.pnp.js
 
 # Build outputs
 dist/
 build/
 .next/
 out/
+*.tsbuildinfo
+.turbo/
 
 # IDE and editor
 .vscode/
 .idea/
 *.sublime-project
 *.sublime-workspace
+.vscode-test
+.vscode-test.log
+
+# Editor files
 *.swp
 *.swo
 *~
-
-# OS
+*.vim
+*.sublime-settings
 .DS_Store
 Thumbs.db
 ehthumbs.db
 desktop.ini
+
+# OS specific
+.DS_Store
 .AppleDouble
 .LSOverride
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Development
+.cache/
+.temp/
+.env*.local
+
+# Docker
+.dockerignore
+.docker/
 
 # Logs
 logs/
@@ -45,8 +71,8 @@ log.txt
 
 # Temporary files
 .tmp/
-.cache/
 .temp/
+*.tmp
 *.bak
 *.backup
 
@@ -55,12 +81,6 @@ log.txt
 coverage/
 .coverage/
 
-# Node
-.node_repl_history
-.npm
-.nvm
-
-# Database
-.mongodb/
-*.db
-*.sqlite
+# CI/CD
+.github/workflows/*.log
+.gitlab-ci.log
