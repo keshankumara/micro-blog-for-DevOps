@@ -1,13 +1,14 @@
 pipeline {
     agent any
-    
+
     environment {
         DOCKER_REGISTRY = 'docker.io'
         BACKEND_IMAGE = "microblog-backend:latest"
         FRONTEND_IMAGE = "microblog-frontend:latest"
     }
-    
+
     stages {
+
         stage('Build Docker Images') {
             steps {
                 sh '''
@@ -18,7 +19,7 @@ pipeline {
                 '''
             }
         }
-        
+
         stage('Push to Docker Hub') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
@@ -43,16 +44,17 @@ pipeline {
 
         stage('Deploy via Ansible') {
             steps {
-                // No need to pass Docker credentials here unless used in playbook
-                sh '''
-                    echo "Deploying via Ansible..."
-                    export ANSIBLE_HOST_KEY_CHECKING=False
-                    ansible-playbook -i ansible/hosts.ini ansible/deploy.yml
-                '''
+                sshagent(['jenkins-ssh-key']) {
+                    sh '''
+                        echo "Deploying via Ansible..."
+                        export ANSIBLE_HOST_KEY_CHECKING=False
+                        ansible-playbook -i ansible/hosts.ini ansible/deploy.yml
+                    '''
+                }
             }
         }
     }
-    
+
     post {
         success { echo "✓ Pipeline completed successfully" }
         failure { echo "✗ Pipeline failed" }
