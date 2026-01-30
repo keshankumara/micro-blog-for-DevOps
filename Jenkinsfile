@@ -31,7 +31,7 @@ pipeline {
                         docker tag ${BACKEND_IMAGE} ${DOCKER_USER}/${BACKEND_IMAGE}
                         docker tag ${FRONTEND_IMAGE} ${DOCKER_USER}/${FRONTEND_IMAGE}
 
-                        echo "Pushing images to Docker Hub..."
+                        echo "Pushing images..."
                         docker push ${DOCKER_USER}/${BACKEND_IMAGE}
                         docker push ${DOCKER_USER}/${FRONTEND_IMAGE}
 
@@ -44,7 +44,7 @@ pipeline {
 
         stage('Deploy via Ansible') {
             steps {
-                // Copy Jenkins SSH key to workspace
+                // Use SSH key stored in Jenkins Credentials
                 withCredentials([sshUserPrivateKey(credentialsId: 'jenkins-ssh-key', keyFileVariable: 'SSH_KEY')]) {
                     sh '''
                         echo "Deploying via Ansible..."
