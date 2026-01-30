@@ -44,11 +44,12 @@ pipeline {
 
         stage('Deploy via Ansible') {
             steps {
-                sshagent(['jenkins-ssh-key']) {
+                // Copy Jenkins SSH key to workspace
+                withCredentials([sshUserPrivateKey(credentialsId: 'jenkins-ssh-key', keyFileVariable: 'SSH_KEY')]) {
                     sh '''
                         echo "Deploying via Ansible..."
                         export ANSIBLE_HOST_KEY_CHECKING=False
-                        ansible-playbook -i ansible/hosts.ini ansible/deploy.yml
+                        ansible-playbook -i ansible/hosts.ini ansible/deploy.yml --private-key $SSH_KEY
                     '''
                 }
             }
