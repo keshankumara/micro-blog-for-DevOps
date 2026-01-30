@@ -40,8 +40,9 @@ pipeline {
                         echo "Deploying via Ansible..."
                         ansible-playbook -i ansible/hosts.ini ansible/deploy.yml
                     '''
-        }
-    }
+                }  // <-- closing withCredentials
+            }  // <-- closing steps
+        }  // <-- closing stage
     }
     
     post {
@@ -49,4 +50,4 @@ pipeline {
         failure { echo "✗ Pipeline failed" }
         always { cleanWs() }
     }
-}
+}  // <-- closing pipeline
