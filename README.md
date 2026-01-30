@@ -228,4 +228,4 @@ Built with ❤️ for learning Full-Stack Development and DevOps
 
 ---
 
-**Happy Coding!!! 🎉**
+**Happy Coding! 🎉**
