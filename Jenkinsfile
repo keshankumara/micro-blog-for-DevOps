@@ -46,20 +46,14 @@ pipeline {
             }
         }
 
-        stage('Deploy via Ansible') {
+        stage('Deploy to EC2 using Ansible') {
             steps {
-                // Use SSH private key stored in Jenkins credentials
-                withCredentials([sshUserPrivateKey(
-                    credentialsId: 'jenkins-ssh-key', 
-                    keyFileVariable: 'SSH_KEY', 
-                    usernameVariable: 'SSH_USER')]) {
-
-                    sh '''
-                        echo "Deploying via Ansible..."
-                        export ANSIBLE_HOST_KEY_CHECKING=False
-                        ansible-playbook -i ansible/hosts.ini ansible/deploy.yml --private-key $SSH_KEY -u $SSH_USER
-                    '''
-                }
+            sshagent(['jenkins-ssh-key']) {
+                sh '''
+                cd ansible
+                ansible-playbook -i inventory playbook.yml
+                '''
+            }
             }
         }
     }
