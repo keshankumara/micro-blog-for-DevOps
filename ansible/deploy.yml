@@ -62,12 +62,14 @@
         - "{{ frontend_image }}"
 
     - name: Stop any existing stack
-      shell: docker-compose down
+      shell: docker-compose down --remove-orphans
       args:
         chdir: "{{ project_dir }}"
+
       ignore_errors: yes
 
-    - name: Start Docker Compose stack
-      shell: docker-compose up -d
+    - name: Start Docker Compose stack (force update)
+      shell: docker-compose up -d --pull always --force-recreate
       args:
         chdir: "{{ project_dir }}"
+      changed_when: true
