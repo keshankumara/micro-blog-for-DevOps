@@ -86,8 +86,7 @@ coverage/
 .gitlab-ci.log
 
 # Ansible
-ansible/
-
+# Allow ansible configuration files to be committed
 
 # Terraform
 .terraform/

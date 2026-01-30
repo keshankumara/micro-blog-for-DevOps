@@ -1,0 +1,73 @@
+---
+- name: Deploy Micro-blog Stack
+  hosts: microblog
+  become: yes
+  vars:
+    project_dir: "/home/ubuntu/micro-blog"
+    backend_image: "keshan01/microblog-backend:latest"
+    frontend_image: "keshan01/microblog-frontend:latest"
+
+  tasks:
+
+    - name: Update and upgrade packages
+      apt:
+        update_cache: yes
+        upgrade: dist
+
+    - name: Install Docker and Docker Compose
+      apt:
+        name:
+          - docker.io
+          - docker-compose
+        state: present
+
+    - name: Ensure Docker service is running
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Login to Docker Hub
+      shell: docker login -u {{ dockerhub_username }} -p {{ dockerhub_token }}
+      args:
+        creates: /root/.docker/config.json
+
+    - name: Create project directory
+      file:
+        path: "{{ project_dir }}"
+        state: directory
+
+    - name: Upload docker-compose.yml
+      copy:
+        src: docker-compose.yml
+        dest: "{{ project_dir }}/docker-compose.yml"
+        owner: ubuntu
+        group: ubuntu
+        mode: '0644'
+
+    - name: Upload .env file
+      copy:
+        src: .env
+        dest: "{{ project_dir }}/.env"
+        owner: ubuntu
+        group: ubuntu
+        mode: '0600'
+
+    - name: Pull Docker images
+      docker_image:
+        name: "{{ item }}"
+        source: pull
+      loop:
+        - "{{ backend_image }}"
+        - "{{ frontend_image }}"
+
+    - name: Stop any existing stack
+      shell: docker-compose down
+      args:
+        chdir: "{{ project_dir }}"
+      ignore_errors: yes
+
+    - name: Start Docker Compose stack
+      shell: docker-compose up -d
+      args:
+        chdir: "{{ project_dir }}"
