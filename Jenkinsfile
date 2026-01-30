@@ -38,11 +38,10 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                     sh '''
                         echo "Deploying via Ansible..."
-                        ansible-playbook -i hosts.ini deploy-microblog.yml
+                        ansible-playbook -i ansible/hosts.ini ansible/deploy.yml
                     '''
-                }
-            }
         }
+    }
     }
     
     post {
