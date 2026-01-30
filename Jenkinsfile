@@ -67,7 +67,7 @@ pipeline {
                               -i inventory \
                               -u "$SSH_USER" \
                               --private-key "$SSH_KEY" \
-                              playbook.yml
+                              deploy.yml
                         '''
                     }
                 }
