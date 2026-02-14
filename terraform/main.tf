@@ -105,8 +105,16 @@ resource "aws_instance" "microblog" {
 }
 
 # -----------------------------
-# Output EC2 Public IP
+# Outputs
 # -----------------------------
 output "ec2_public_ip" {
   value = aws_instance.microblog.public_ip
+}
+
+output "backend_url" {
+  value = "http://${aws_instance.microblog.public_ip}:${var.backend_port}"
+}
+
+output "frontend_url" {
+  value = "http://${aws_instance.microblog.public_ip}"
 }
