@@ -1,6 +1,6 @@
 ---
 - name: Deploy Micro-blog Stack
-  hosts: microblog
+  hosts: all           # Dynamic hosts will come from inventory
   become: yes
   vars:
     project_dir: "/home/ubuntu/micro-blog"
@@ -30,7 +30,7 @@
     - name: Login to Docker Hub
       shell: docker login -u {{ dockerhub_username }} -p {{ dockerhub_token }}
       args:
-        creates: /root/.docker/config.json
+        creates: /home/ubuntu/.docker/config.json
 
     - name: Create project directory
       file:
@@ -65,7 +65,6 @@
       shell: docker-compose down --remove-orphans
       args:
         chdir: "{{ project_dir }}"
-
       ignore_errors: yes
 
     - name: Start Docker Compose stack (force update)

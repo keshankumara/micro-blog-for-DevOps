@@ -11,10 +11,9 @@ pipeline {
 
         stage('Terraform') {
             steps {
-                withCredentials([[
-                    $class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'aws-credentials'
-                ]]) {
+                withCredentials([
+                    [$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials']
+                ]) {
                     dir('terraform') {
                         script {
                             sh 'terraform init -input=false'
@@ -86,6 +85,11 @@ pipeline {
                         credentialsId: 'jenkins-ssh-key',
                         keyFileVariable: 'SSH_KEY',
                         usernameVariable: 'SSH_USER'
+                    ),
+                    usernamePassword(
+                        credentialsId: 'dockerhub-credentials',
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_PASS'
                     )
                 ]) {
                     dir('ansible') {
@@ -93,11 +97,16 @@ pipeline {
                             set -e
                             export ANSIBLE_HOST_KEY_CHECKING=False
 
-                            ansible-playbook \
-                              -i inventory \
-                              -u "$SSH_USER" \
-                              --private-key "$SSH_KEY" \
-                              deploy.yml
+                            # Get dynamic public IP from Terraform output
+                            PUBLIC_IP=$(terraform -chdir=../terraform output -raw instance_public_ip)
+
+                            # Create dynamic inventory file
+                            echo "[microblog]" > inventory
+                            echo "$PUBLIC_IP ansible_user=$SSH_USER ansible_ssh_private_key_file=$SSH_KEY" >> inventory
+
+                            # Run Ansible Playbook with Docker credentials
+                            ansible-playbook -i inventory deploy.yml \
+                              -e "dockerhub_username=$DOCKER_USER dockerhub_token=$DOCKER_PASS"
                         '''
                     }
                 }
