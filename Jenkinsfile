@@ -102,7 +102,7 @@ pipeline {
 
                             # Create dynamic inventory file
                             echo "[microblog]" > inventory
-                            echo "$PUBLIC_IP ansible_user=$SSH_USER ansible_ssh_private_key_file=$SSH_KEY" >> inventory
+                            echo "$PUBLIC_IP ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/devops-key.pem" >> inventory
 
                             # Run Ansible Playbook with Docker credentials
                             ansible-playbook -i inventory deploy.yml \
