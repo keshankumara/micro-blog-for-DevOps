@@ -95,3 +95,7 @@ coverage/
 *.tfvars
 *.tfvars.json
 .terraform.lock.hcl
+
+# Terraform SSH keys
+/terraform/devops-key
+

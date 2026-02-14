@@ -1,5 +1,6 @@
 terraform {
   required_version = ">= 1.5.0"
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -12,7 +13,9 @@ provider "aws" {
   region = var.aws_region
 }
 
-# Default VPC and subnet (simple setup)
+# -----------------------------
+# Default VPC and Subnet
+# -----------------------------
 data "aws_vpc" "default" {
   default = true
 }
@@ -24,6 +27,17 @@ data "aws_subnets" "default" {
   }
 }
 
+# -----------------------------
+# Create SSH Key in AWS
+# -----------------------------
+resource "aws_key_pair" "devops" {
+  key_name   = "devops-key"
+  public_key = file("${path.module}/devops-key.pub")
+}
+
+# -----------------------------
+# Security Group
+# -----------------------------
 resource "aws_security_group" "microblog_sg" {
   name        = "microblog-sg"
   description = "Allow SSH, HTTP, and API"
@@ -65,12 +79,15 @@ resource "aws_security_group" "microblog_sg" {
   }
 }
 
+# -----------------------------
+# EC2 Instance
+# -----------------------------
 resource "aws_instance" "microblog" {
   ami                         = var.ami_id
   instance_type               = var.instance_type
   subnet_id                   = data.aws_subnets.default.ids[0]
   vpc_security_group_ids      = [aws_security_group.microblog_sg.id]
-  key_name                    = var.key_name
+  key_name                    = aws_key_pair.devops.key_name
   associate_public_ip_address = true
 
   user_data = templatefile("${path.module}/user_data.sh.tftpl", {
@@ -85,4 +102,11 @@ resource "aws_instance" "microblog" {
   tags = {
     Name = "microblog-server"
   }
+}
+
+# -----------------------------
+# Output EC2 Public IP
+# -----------------------------
+output "ec2_public_ip" {
+  value = aws_instance.microblog.public_ip
 }
