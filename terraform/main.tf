@@ -31,7 +31,7 @@ data "aws_subnets" "default" {
 # Create SSH Key in AWS
 # -----------------------------
 resource "aws_key_pair" "devops" {
-  key_name   = "devops-key"
+  key_name   = "devops-key-microblog"
   public_key = file("${path.module}/devops-key.pub")
 }
 
@@ -39,7 +39,7 @@ resource "aws_key_pair" "devops" {
 # Security Group
 # -----------------------------
 resource "aws_security_group" "microblog_sg" {
-  name        = "microblog-sg"
+  name        = "microblog-sg-microblog"
   description = "Allow SSH, HTTP, and API"
   vpc_id      = data.aws_vpc.default.id
 
