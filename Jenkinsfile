@@ -71,15 +71,9 @@ pipeline {
                             set -e
                             export ANSIBLE_HOST_KEY_CHECKING=False
 
-                            # Get dynamic public IP from Terraform output
-                            PUBLIC_IP=$(terraform -chdir=../terraform output -raw instance_public_ip)
-
-                            # Create dynamic inventory file
-                            echo "[microblog]" > inventory
-                            echo "$PUBLIC_IP ansible_user=ubuntu ansible_ssh_private_key_file=$SSH_KEY" >> inventory
-
                             # Run Ansible Playbook with Docker credentials
-                            ansible-playbook -i inventory deploy.yml \
+                            ansible-playbook -i hosts.ini deploy.yml \
+                              --private-key "$SSH_KEY" \
                               -e "dockerhub_username=$DOCKER_USER dockerhub_token=$DOCKER_PASS"
                         '''
                     }
