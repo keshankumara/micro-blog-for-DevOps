@@ -11,20 +11,27 @@ pipeline {
 
         stage('Terraform') {
             steps {
-                dir('terraform') {
-                    script {
-                        sh 'terraform init -input=false'
-                        def planStatus = sh(
-                            script: 'terraform plan -detailed-exitcode -input=false -out=tfplan',
-                            returnStatus: true
-                        )
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-credentials'
+                ]]) {
+                    dir('terraform') {
+                        script {
+                            sh 'terraform init -input=false'
 
-                        if (planStatus == 2) {
-                            sh 'terraform apply -input=false tfplan'
-                        } else if (planStatus == 0) {
-                            echo 'No infrastructure changes detected; skipping apply.'
-                        } else {
-                            error 'Terraform plan failed.'
+                            def planStatus = sh(
+                                script: 'terraform plan -detailed-exitcode -input=false -out=tfplan',
+                                returnStatus: true
+                            )
+
+                            if (planStatus == 2) {
+                                echo "Infrastructure changes detected. Applying..."
+                                sh 'terraform apply -input=false tfplan'
+                            } else if (planStatus == 0) {
+                                echo 'No infrastructure changes detected; skipping apply.'
+                            } else {
+                                error 'Terraform plan failed.'
+                            }
                         }
                     }
                 }
@@ -34,6 +41,7 @@ pipeline {
         stage('Build Docker Images') {
             steps {
                 sh '''
+                    set -e
                     echo "Building Docker images..."
                     docker build -t ${BACKEND_IMAGE} ./backend
                     docker build -t ${FRONTEND_IMAGE} ./frontend
