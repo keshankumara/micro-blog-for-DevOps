@@ -84,19 +84,17 @@ pipeline {
                     string(credentialsId: 'mongo_url', variable: 'MONGO_URL'),
                     string(credentialsId: 'jwt_secret', variable: 'JWT_SECRET')
                 ]) {
-                    dir('ansible') {
-                        sh '''
-                            cat > .env <<EOL
-                            MONGO_URL=$MONGO_URL
-                            JWT_SECRET=$JWT_SECRET
-                            NODE_ENV=production
-                            BACKEND_PORT=5000
-                            FRONTEND_PORT=80
-                            BACKEND_IMAGE=keshan01/microblog-backend:latest
-                            FRONTEND_IMAGE=keshan01/microblog-frontend:latest
-                            EOL
-                        '''
-                    }
+                    sh '''
+                        cat > .env <<EOL
+                        MONGO_URL=$MONGO_URL
+                        JWT_SECRET=$JWT_SECRET
+                        NODE_ENV=production
+                        BACKEND_PORT=5000
+                        FRONTEND_PORT=80
+                        BACKEND_IMAGE=keshan01/microblog-backend:latest
+                        FRONTEND_IMAGE=keshan01/microblog-frontend:latest
+                        EOL
+                    '''
                 }
             }
         }
