@@ -28,55 +28,18 @@ data "aws_subnets" "default" {
 }
 
 # -----------------------------
-# Create SSH Key in AWS
+# Use existing SSH Key in AWS
 # -----------------------------
-resource "aws_key_pair" "devops" {
-  key_name   = "devops-key-microblog"
-  public_key = file("${path.module}/devops-key.pub")
+data "aws_key_pair" "devops" {
+  key_name = "devops-key-microblog"
 }
 
 # -----------------------------
-# Security Group
+# Use existing Security Group
 # -----------------------------
-resource "aws_security_group" "microblog_sg" {
-  name        = "microblog-sg-microblog"
-  description = "Allow SSH, HTTP, and API"
-  vpc_id      = data.aws_vpc.default.id
-
-  ingress {
-    description = "SSH"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = var.allowed_ssh_cidrs
-  }
-
-  ingress {
-    description = "HTTP"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    description = "Backend API"
-    from_port   = 5000
-    to_port     = 5000
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name = "microblog-sg"
-  }
+data "aws_security_group" "microblog_sg" {
+  name   = "microblog-sg-microblog"
+  vpc_id = data.aws_vpc.default.id
 }
 
 # -----------------------------
@@ -86,8 +49,8 @@ resource "aws_instance" "microblog" {
   ami                         = var.ami_id
   instance_type               = var.instance_type
   subnet_id                   = data.aws_subnets.default.ids[0]
-  vpc_security_group_ids      = [aws_security_group.microblog_sg.id]
-  key_name                    = aws_key_pair.devops.key_name
+  vpc_security_group_ids      = [data.aws_security_group.microblog_sg.id]
+  key_name                    = data.aws_key_pair.devops.key_name
   associate_public_ip_address = true
 
   user_data = templatefile("${path.module}/user_data.sh.tftpl", {
