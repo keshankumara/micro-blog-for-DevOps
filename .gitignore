@@ -1,5 +1,5 @@
 # Environment variables - SENSITIVE DATA
-.env
+# .env
 .env.local
 .env.*.local
 .env.production
